@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+        google.charts.load("current", {packages:["timeline"]});
+        google.charts.setOnLoadCallback(drawChart);
+
+        function drawChart() {
+            const container = document.getElementById('timeline');
+            const chart = new google.visualization.Timeline(container);
+            const dataTable = new google.visualization.DataTable();
+
+            dataTable.addColumn({ type: 'string', id: 'Event' });
+            dataTable.addColumn({ type: 'date', id: 'Start' });
+            dataTable.addColumn({ type: 'date', id: 'End' });
+
+            // Data will be added here from the script below
+            dataTable.addRows(window.timelineData);
+
+            const options = {
+                timeline: { showRowLabels: true },
+                avoidOverlappingGridLines: false,
+            };
+
+            chart.draw(dataTable, options);
+        }
+    </script>
+    <script type='module' src="./js/main.js" defer></script>
+</head>
+<body>
+
+    <div class="container">
+        <ul id="events">
+            <li>
+                <h2>Event 1</h2>
+                <p>Event 1 date</p>
+            </li>
+        </ul>
+
+        <div id="timeline" style="min-height: 500px"></div>
+    </div>
+
+
+
+
+</body>
+</html>

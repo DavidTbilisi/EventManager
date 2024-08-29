@@ -1,0 +1,87 @@
+* {
+    box-sizing: border-box;
+}
+
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+#events {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+#events li{
+    list-style: none;
+    border: 1px solid #333;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+
+}
+
+#events li .countdown{
+    display: grid;
+    grid-template-areas: 
+        "title title title"
+        "event-date event-date event-date"
+        "date date date"
+        "date date date"
+        "date date date"
+        "date date date"
+        "description description description";
+    gap: 10px;
+}
+
+#events li h2 {
+    grid-area: title;
+    margin: 0;
+}
+
+.event-date {
+    grid-area: event-date;
+    display: flex;
+    justify-content: space-around;
+    border-bottom: 1px solid #333;
+    border-top: 1px solid #333;
+    margin: 0;
+}
+
+#events li .time-direction {
+    grid-area: description;
+    margin: 0;
+    text-transform: uppercase;
+    font-weight: bold;
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+}
+
+.time-direction.past{
+    background-color: rgb(255, 114, 114);
+}
+
+.time-direction.future{
+    background-color: rgb(216, 255, 157);
+}
+
+
+/* Mobile version */
+@media screen and (max-width: 600px) {
+    
+    #timeline {
+        display: none;
+    }
+
+}
