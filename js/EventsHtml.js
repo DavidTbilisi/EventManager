@@ -1,7 +1,8 @@
 export class EventsHtml {
-    constructor(eventsCountdown) {
+    constructor(eventsCountdown, updateIn = null) {
         this.eventsCountdown = eventsCountdown;
         this.eventsList = document.getElementById("events");
+        this.updateIn = updateIn // Update every second
     }
 
     renderEvents() {
@@ -18,12 +19,13 @@ export class EventsHtml {
     }
 
     createEventHtml(event) {
+        let uniqueId = Symbol(event.name);
         const eventDuration = event.getDuration();
         const timeDirection = eventDuration.isPast ? "past" : "future";
         const eventHtml = document.createElement("li");
         eventHtml.classList.add("event");
         eventHtml.innerHTML = `
-        <div class="countdown">
+        <div class="countdown" id="${Symbol.keyFor(Symbol.for(event.name)) }">
             <h2>${event.name}</h2>
             <div class="event-date">
                 <div class="weekday">${eventDuration.weekday}</div>
@@ -53,6 +55,20 @@ export class EventsHtml {
     startRendering() {
         this.renderEvents();
         this.renderTimeline(); 
-        // setInterval(() => this.renderEvents(), 1000); // Update every second
+        if (this.updateIn){
+            setInterval(() => this.renderEvents(), this.updateIn); // Update every second
+        }
+    }
+
+
+    // make one event full screen
+    fullScreen(eventName) {
+        const event = this.eventsCountdown.getEventByName(eventName);
+        console.log(event);
+        if (event) {
+            const eventHtml = this.createEventHtml(event);
+            eventHtml.classList.add("full-screen");
+            document.body.appendChild(eventHtml);
+        }
     }
 }
