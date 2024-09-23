@@ -60,7 +60,6 @@ export class EventsHtml {
         }
     }
 
-
     // make one event full screen
     fullScreen(eventName) {
         const event = this.eventsCountdown.getEventByName(eventName);

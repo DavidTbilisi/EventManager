@@ -2,7 +2,6 @@
     box-sizing: border-box;
 }
 
-
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -22,18 +21,17 @@ ul {
     padding: 0;
 }
 
-#events li{
+#events li {
     list-style: none;
     border: 1px solid #333;
     padding: 10px;
     margin-bottom: 10px;
     border-radius: 5px;
-
 }
 
-#events li .countdown{
+#events li .countdown {
     display: grid;
-    grid-template-areas: 
+    grid-template-areas:
         "title title title"
         "event-date event-date event-date"
         "date date date"
@@ -68,20 +66,48 @@ ul {
     padding: 10px;
 }
 
-.time-direction.past{
+.time-direction.past {
     background-color: rgb(255, 114, 114);
 }
 
-.time-direction.future{
+.time-direction.future {
     background-color: rgb(216, 255, 157);
 }
 
+#event-form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid #333;
+}
+
+#event-form input[type="text"] {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #333;
+}
+
+#event-form input[type="date"] {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #333;
+}
+
+#event-form input[type="submit"] {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #333;
+    background-color: #333;
+    color: white;
+}
 
 /* Mobile version */
 @media screen and (max-width: 600px) {
-    
     #timeline {
         display: none;
     }
-
 }

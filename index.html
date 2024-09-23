@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +10,7 @@
     <link rel="stylesheet" href="style.css">
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script type="text/javascript">
-        google.charts.load("current", {packages:["timeline"]});
+        google.charts.load("current", { packages: ["timeline"] });
         google.charts.setOnLoadCallback(drawChart);
 
         function drawChart() {
@@ -34,9 +35,22 @@
     </script>
     <script type='module' src="./js/main.js" defer></script>
 </head>
+
 <body>
 
+
     <div class="container">
+
+        <form id="event-form">
+            <label for="event-name">Event Name</label>
+            <input type="text" id="event-name" name="event-name" required>
+            <label for="event-start-time">Event Start Time</label>
+            <input type="date" id="event-start-time" name="event-start-time" required>
+            <label for="event-end-time">Event End Time</label>
+            <input type="date" id="event-end-time" name="event-end-time">
+            <input type="submit" value="Add event"></input>
+        </form>
+
         <ul id="events">
             <li>
                 <h2>Event 1</h2>
@@ -51,4 +65,5 @@
 
 
 </body>
+
 </html>
