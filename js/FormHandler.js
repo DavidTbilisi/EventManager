@@ -16,6 +16,18 @@ export default class FormHandler {
         // Save data to local storage
         const localStorage = new LocalStorage();
         localStorage.set('formData', data);
-        
+
+        // Save event to cookie
+        let events = [];
+        const cookie = document.cookie.split('; ').find(row => row.startsWith('events='));
+        if (cookie) {
+            try {
+                events = JSON.parse(decodeURIComponent(cookie.split('=')[1]));
+            } catch (e) {
+                events = [];
+            }
+        }
+        events.push(data);
+        document.cookie = `events=${encodeURIComponent(JSON.stringify(events))}; path=/; max-age=31536000`;
     }
 }
