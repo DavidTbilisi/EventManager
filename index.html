@@ -14,23 +14,49 @@
         google.charts.setOnLoadCallback(drawChart);
 
         function drawChart() {
+            // Check if we have valid data before drawing
+            if (!window.timelineData || window.timelineData.length === 0) {
+                return;
+            }
+
             const container = document.getElementById('timeline');
-            const chart = new google.visualization.Timeline(container);
-            const dataTable = new google.visualization.DataTable();
+            if (!container || container.style.display === 'none') {
+                return;
+            }
 
-            dataTable.addColumn({ type: 'string', id: 'Event' });
-            dataTable.addColumn({ type: 'date', id: 'Start' });
-            dataTable.addColumn({ type: 'date', id: 'End' });
+            try {
+                const chart = new google.visualization.Timeline(container);
+                const dataTable = new google.visualization.DataTable();
 
-            // Data will be added here from the script below
-            dataTable.addRows(window.timelineData);
+                dataTable.addColumn({ type: 'string', id: 'Event' });
+                dataTable.addColumn({ type: 'date', id: 'Start' });
+                dataTable.addColumn({ type: 'date', id: 'End' });
 
-            const options = {
-                timeline: { showRowLabels: true },
-                avoidOverlappingGridLines: false,
-            };
+                // Validate and add rows
+                const validData = window.timelineData.filter(row => {
+                    return row && row.length === 3 &&
+                        typeof row[0] === 'string' &&
+                        row[1] instanceof Date && !isNaN(row[1].getTime()) &&
+                        row[2] instanceof Date && !isNaN(row[2].getTime());
+                });
 
-            chart.draw(dataTable, options);
+                if (validData.length === 0) {
+                    return;
+                }
+
+                dataTable.addRows(validData);
+
+                const options = {
+                    timeline: { showRowLabels: true },
+                    avoidOverlappingGridLines: false,
+                };
+
+                chart.draw(dataTable, options);
+            } catch (error) {
+                console.warn('Timeline chart error:', error);
+                // Hide timeline if there's an error
+                container.style.display = 'none';
+            }
         }
     </script>
     <script type='module' src="./js/main.js" defer></script>
@@ -52,10 +78,7 @@
         </form>
 
         <ul id="events">
-            <li>
-                <h2>Event 1</h2>
-                <p>Event 1 date</p>
-            </li>
+            <!-- Events will be populated dynamically -->
         </ul>
 
         <div id="timeline" style="min-height: 500px"></div>

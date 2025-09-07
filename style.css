@@ -103,11 +103,110 @@ ul {
     border: 1px solid #333;
     background-color: #333;
     color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#event-form input[type="submit"]:hover {
+    background-color: #555;
+}
+
+/* Storage info styles */
+.storage-info {
+    margin-bottom: 20px;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.cloud-status {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.local-status {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+    color: #2d3436;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.small-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: inherit;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.small-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.local-status .small-btn {
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.local-status .small-btn:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* Event action buttons */
+.event-action {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    margin: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.3s ease;
+}
+
+.event-action:hover {
+    background: #0056b3;
+}
+
+.event-action:last-child {
+    background: #dc3545;
+}
+
+.event-action:last-child:hover {
+    background: #c82333;
 }
 
 /* Mobile version */
 @media screen and (max-width: 600px) {
     #timeline {
         display: none;
+    }
+
+    .cloud-status,
+    .local-status {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .small-btn {
+        margin-top: 10px;
+        width: 100%;
     }
 }

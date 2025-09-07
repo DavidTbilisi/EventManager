@@ -2,15 +2,29 @@ export class EventsHtml {
     constructor(eventsCountdown, updateIn = null) {
         this.eventsCountdown = eventsCountdown;
         this.eventsList = document.getElementById("events");
-        this.updateIn = updateIn // Update every second
+        this.updateIn = updateIn; // Update every second
     }
 
     renderEvents() {
-        this.eventsList.innerHTML = ''; // Clear the previous content
+        this.eventsList.innerHTML = ""; // Clear the previous content
         this.eventsCountdown.updateDurations();
-        this.eventsCountdown.getEvents().forEach(event => {
-            this.renderEvent(event);
-        });
+        const events = this.eventsCountdown.getEvents();
+
+        if (events.length === 0) {
+            // Show a message when no events exist
+            const noEventsMessage = document.createElement("li");
+            noEventsMessage.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #666;">
+                    <h3>No events yet</h3>
+                    <p>Add your first event using the form above!</p>
+                </div>
+            `;
+            this.eventsList.appendChild(noEventsMessage);
+        } else {
+            events.forEach((event) => {
+                this.renderEvent(event);
+            });
+        }
     }
 
     renderEvent(event) {
@@ -25,13 +39,13 @@ export class EventsHtml {
         const eventHtml = document.createElement("li");
         eventHtml.classList.add("event");
         eventHtml.innerHTML = `
-        <div class="countdown" id="${Symbol.keyFor(Symbol.for(event.name)) }">
+        <div class="countdown" id="${Symbol.keyFor(Symbol.for(event.name))}">
             <h2>${event.name}</h2>
             <div class="event-date">
                 <div class="weekday">${eventDuration.weekday}</div>
                 <div class="month-name">${eventDuration.monthName}</div>
-                <div class="event-day">${event.date.format('D')}</div>
-                <div class="event-year">${event.date.format('YYYY')}</div>
+                <div class="event-day">${event.date.format("D")}</div>
+                <div class="event-year">${event.date.format("YYYY")}</div>
             </div>
             <div class="years">${eventDuration.years} years</div>
             <div class="months">${eventDuration.months} months</div>
@@ -48,14 +62,19 @@ export class EventsHtml {
 
     renderTimeline() {
         const timelineData = this.eventsCountdown.prepareTimelineData();
-        window.timelineData = timelineData;
-        google.charts.setOnLoadCallback(drawChart);
+        if (timelineData && timelineData.length > 0) {
+            window.timelineData = timelineData;
+            google.charts.setOnLoadCallback(drawChart);
+        }
     }
 
     startRendering() {
         this.renderEvents();
-        this.renderTimeline(); 
-        if (this.updateIn){
+        // Only render timeline if there are events
+        if (this.eventsCountdown.getEvents().length > 0) {
+            this.renderTimeline();
+        }
+        if (this.updateIn) {
             setInterval(() => this.renderEvents(), this.updateIn); // Update every second
         }
     }

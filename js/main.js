@@ -1,130 +1,216 @@
 import { EventsCountdown } from "./EventsCountdown.js";
 import { Event } from "./Events.js";
 import { EventsHtml } from "./EventsHtml.js";
+import AuthService from "./AuthService.js";
+import HybridStorage from "./HybridStorage.js";
 
-// --- Cookie utility functions ---
-function getEventsFromCookie() {
-    const cookie = document.cookie.split('; ').find(row => row.startsWith('events='));
-    if (cookie) {
-        try {
-            return JSON.parse(decodeURIComponent(cookie.split('=')[1]));
-        } catch (e) {
-            return [];
-        }
-    }
-    return [];
+// --- Initialize hybrid storage ---
+const authService = new AuthService();
+const storage = new HybridStorage(authService);
+
+// --- Hybrid storage wrapper functions (keeps your existing interface) ---
+async function getEventsFromStorage() {
+    return await storage.getEvents();
 }
 
-function setEventsToCookie(events) {
-    document.cookie = `events=${encodeURIComponent(JSON.stringify(events))}; path=/; max-age=31536000`;
+async function setEventsToStorage(events) {
+    await storage.saveAllEvents(events);
 }
 
 function toEventObj(formData) {
     return {
-        title: formData.get('event-name'),
-        start: formData.get('event-start-time'),
-        end: formData.get('event-end-time') || undefined
+        title: formData.get("event-name"),
+        start: formData.get("event-start-time"),
+        end: formData.get("event-end-time") || undefined,
     };
 }
 
 // Edit event by index
-function editEventInCookie(index, newEvent) {
-    let events = getEventsFromCookie();
-    if (index >= 0 && index < events.length) {
-        events[index] = newEvent;
-        setEventsToCookie(events);
-        renderAllEvents();
-    }
+async function editEventInStorage(index, newEvent) {
+    await storage.updateEvent(index, newEvent);
+    renderAllEvents();
 }
 
 // Remove event by index
-function removeEventFromCookie(index) {
-    let events = getEventsFromCookie();
-    if (index >= 0 && index < events.length) {
-        events.splice(index, 1);
-        setEventsToCookie(events);
-        renderAllEvents();
-    }
+async function removeEventFromStorage(index) {
+    await storage.removeEvent(index);
+    renderAllEvents();
 }
 
 // Add edit/remove buttons to each event in the UI
 function addEventActions() {
-    const eventList = document.getElementById('events');
+    const eventList = document.getElementById("events");
     if (!eventList) return;
     // Remove existing buttons to avoid duplicates
-    eventList.querySelectorAll('.event-action').forEach(btn => btn.remove());
+    eventList.querySelectorAll(".event-action").forEach((btn) => btn.remove());
     // Add buttons to each event
     Array.from(eventList.children).forEach((li, idx) => {
         // Edit button
-        const editBtn = document.createElement('button');
-        editBtn.textContent = 'Edit';
-        editBtn.className = 'event-action';
-        editBtn.onclick = () => {
-            const events = getEventsFromCookie();
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "Edit";
+        editBtn.className = "event-action";
+        editBtn.onclick = async () => {
+            const events = await getEventsFromStorage();
             const event = events[idx];
             // Fill form with event data
-            form['event-name'].value = event.title;
-            form['event-start-time'].value = event.start;
-            form['event-end-time'].value = event.end || '';
+            form["event-name"].value = event.title;
+            form["event-start-time"].value = event.start;
+            form["event-end-time"].value = event.end || "";
             // On next submit, replace event instead of adding
-            form.onsubmit = function(e) {
+            form.onsubmit = async function (e) {
                 e.preventDefault();
                 const formData = new FormData(form);
                 const newEvent = toEventObj(formData);
-                editEventInCookie(idx, newEvent);
+                await editEventInStorage(idx, newEvent);
                 form.reset();
                 form.onsubmit = defaultFormHandler;
             };
         };
         li.appendChild(editBtn);
         // Remove button
-        const removeBtn = document.createElement('button');
-        removeBtn.textContent = 'Remove';
-        removeBtn.className = 'event-action';
-        removeBtn.onclick = () => removeEventFromCookie(idx);
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.className = "event-action";
+        removeBtn.onclick = () => removeEventFromStorage(idx);
         li.appendChild(removeBtn);
     });
 }
 
 // Save default form handler for restoring after edit
-const defaultFormHandler = function (e) {
+const defaultFormHandler = async function (e) {
     e.preventDefault();
     const formData = new FormData(form);
     const eventObj = toEventObj(formData);
-    let events = getEventsFromCookie();
-    events.push(eventObj);
-    setEventsToCookie(events);
+    await storage.saveEvent(eventObj);
     renderAllEvents();
     form.reset();
     form.onsubmit = defaultFormHandler;
 };
 
 // Update renderAllEvents to add actions
-function renderAllEvents() {
-    const eventsArr = getEventsFromCookie();
+async function renderAllEvents() {
+    const eventsArr = await getEventsFromStorage();
     const eventsCountdown = new EventsCountdown();
-    eventsArr.forEach(e => {
+    eventsArr.forEach((e) => {
         eventsCountdown.addEvent(new Event(e.title, e.start, e.end));
     });
     const eventsHtml = new EventsHtml(eventsCountdown);
     eventsHtml.startRendering();
-    // For timeline chart
-    window.timelineData = eventsArr.map(e => [
-        e.title,
-        new Date(e.start),
-        e.end ? new Date(e.end) : new Date(e.start)
-    ]);
-    if (typeof google !== 'undefined' && google.visualization && google.visualization.Timeline) {
-        if (typeof drawChart === 'function') drawChart();
+
+    // Handle timeline chart
+    const timelineContainer = document.getElementById("timeline");
+    if (eventsArr.length > 0) {
+        // Show timeline and render chart
+        timelineContainer.style.display = "block";
+
+        // Prepare timeline data with validation
+        window.timelineData = eventsArr
+            .map((e) => {
+                const startDate = new Date(e.start);
+                const endDate = e.end
+                    ? new Date(e.end)
+                    : new Date(startDate.getTime() + 24 * 60 * 60 * 1000); // Add 1 day if no end date
+
+                // Validate dates
+                if (isNaN(startDate.getTime())) {
+                    console.warn("Invalid start date for event:", e.title);
+                    return null;
+                }
+                if (isNaN(endDate.getTime())) {
+                    console.warn("Invalid end date for event:", e.title);
+                    return null;
+                }
+
+                return [e.title, startDate, endDate];
+            })
+            .filter((row) => row !== null); // Remove invalid entries
+
+        // Only draw chart if we have valid data
+        if (
+            window.timelineData.length > 0 &&
+            typeof google !== "undefined" &&
+            google.visualization &&
+            google.visualization.Timeline
+        ) {
+            if (typeof drawChart === "function") {
+                setTimeout(drawChart, 100); // Small delay to ensure DOM is ready
+            }
+        } else {
+            timelineContainer.style.display = "none";
+        }
+    } else {
+        // Hide timeline when no events
+        timelineContainer.style.display = "none";
+        window.timelineData = [];
     }
+
     addEventActions();
+    updateStorageInfo();
 }
 
+// Storage info display
+function updateStorageInfo() {
+    const storageInfo = storage.getStorageInfo();
+    let infoEl = document.getElementById("storage-info");
+    if (!infoEl) {
+        infoEl = document.createElement("div");
+        infoEl.id = "storage-info";
+        infoEl.className = "storage-info";
+        document
+            .querySelector(".container")
+            .insertBefore(infoEl, document.getElementById("event-form"));
+    }
+
+    if (storageInfo.type === "cloud") {
+        infoEl.innerHTML = `
+            <div class="cloud-status">
+                ☁️ <strong>Cloud Sync Active</strong> - ${storageInfo.description}
+                <button id="sign-out-btn" class="small-btn">Sign Out</button>
+            </div>
+        `;
+        document.getElementById("sign-out-btn").onclick = async () => {
+            await authService.signOut();
+            renderAllEvents();
+        };
+    } else {
+        infoEl.innerHTML = `
+            <div class="local-status">
+                💾 <strong>Local Storage</strong> - ${storageInfo.description}
+                <button id="sign-in-btn" class="small-btn">Sign in for Cloud Sync</button>
+            </div>
+        `;
+        document.getElementById("sign-in-btn").onclick = async () => {
+            try {
+                await authService.signInWithGoogle();
+                await storage.migrateCookiesToCloud();
+                renderAllEvents();
+            } catch (error) {
+                console.error("Sign in failed:", error);
+                alert("Sign in failed. Please try again.");
+            }
+        };
+    }
+}
+
+// Listen for auth state changes
+authService.onAuthStateChanged((user) => {
+    if (user) {
+        console.log("User signed in:", user.displayName);
+        // Migrate cookie data to cloud
+        storage.migrateCookiesToCloud().then(() => {
+            renderAllEvents();
+        });
+    } else {
+        console.log("User signed out");
+        renderAllEvents();
+    }
+});
+
 // Form handler
-const form = document.getElementById('event-form');
+const form = document.getElementById("event-form");
 if (form) {
     form.onsubmit = defaultFormHandler;
 }
 
-// Initial render from cookie
+// Initial render
 renderAllEvents();
