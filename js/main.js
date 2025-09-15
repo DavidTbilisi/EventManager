@@ -54,8 +54,19 @@ function addEventActions() {
             const event = events[idx];
             // Fill form with event data
             form["event-name"].value = event.title;
-            form["event-start-time"].value = event.start;
-            form["event-end-time"].value = event.end || "";
+            
+            // Format datetime for datetime-local input
+            if (event.start) {
+                const startDate = new Date(event.start);
+                form["event-start-time"].value = startDate.toISOString().slice(0, 16);
+            }
+            if (event.end) {
+                const endDate = new Date(event.end);
+                form["event-end-time"].value = endDate.toISOString().slice(0, 16);
+            } else {
+                form["event-end-time"].value = "";
+            }
+            
             // On next submit, replace event instead of adding
             form.onsubmit = async function (e) {
                 e.preventDefault();
