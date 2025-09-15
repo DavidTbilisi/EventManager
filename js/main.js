@@ -38,7 +38,7 @@ async function removeEventFromStorage(index) {
 }
 
 // Add edit/remove buttons to each event in the UI
-function addEventActions() {
+function addEventActions(sortedEvents) {
     const eventList = document.getElementById("events");
     if (!eventList) return;
     // Remove existing buttons to avoid duplicates
@@ -50,8 +50,8 @@ function addEventActions() {
         editBtn.textContent = "Edit";
         editBtn.className = "event-action";
         editBtn.onclick = async () => {
-            const events = await getEventsFromStorage();
-            const event = events[idx];
+            // Use the sorted events array to get the correct event
+            const event = sortedEvents[idx];
             // Fill form with event data
             form["event-name"].value = event.title;
             
@@ -67,12 +67,20 @@ function addEventActions() {
                 form["event-end-time"].value = "";
             }
             
+            // Find the original index in the unsorted array for storage operations
+            const allEvents = await getEventsFromStorage();
+            const originalIndex = allEvents.findIndex(e => 
+                e.title === event.title && 
+                e.start === event.start && 
+                e.end === event.end
+            );
+            
             // On next submit, replace event instead of adding
             form.onsubmit = async function (e) {
                 e.preventDefault();
                 const formData = new FormData(form);
                 const newEvent = toEventObj(formData);
-                await editEventInStorage(idx, newEvent);
+                await editEventInStorage(originalIndex, newEvent);
                 form.reset();
                 form.onsubmit = defaultFormHandler;
             };
@@ -82,7 +90,18 @@ function addEventActions() {
         const removeBtn = document.createElement("button");
         removeBtn.textContent = "Remove";
         removeBtn.className = "event-action";
-        removeBtn.onclick = () => removeEventFromStorage(idx);
+        removeBtn.onclick = async () => {
+            // Use the sorted events array to get the correct event
+            const event = sortedEvents[idx];
+            // Find the original index in the unsorted array for storage operations
+            const allEvents = await getEventsFromStorage();
+            const originalIndex = allEvents.findIndex(e => 
+                e.title === event.title && 
+                e.start === event.start && 
+                e.end === event.end
+            );
+            removeEventFromStorage(originalIndex);
+        };
         li.appendChild(removeBtn);
     });
 }
@@ -163,7 +182,7 @@ async function renderAllEvents() {
         window.timelineData = [];
     }
 
-    addEventActions();
+    addEventActions(sortedEvents);
     updateStorageInfo();
 }
 
