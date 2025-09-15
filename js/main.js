@@ -214,3 +214,8 @@ if (form) {
 
 // Initial render
 renderAllEvents();
+
+// Set up automatic refresh every second
+setInterval(() => {
+    renderAllEvents();
+}, 1000);
