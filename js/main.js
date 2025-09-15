@@ -101,8 +101,16 @@ const defaultFormHandler = async function (e) {
 // Update renderAllEvents to add actions
 async function renderAllEvents() {
     const eventsArr = await getEventsFromStorage();
+    
+    // Sort events by start date
+    const sortedEvents = eventsArr.sort((a, b) => {
+        const dateA = new Date(a.start);
+        const dateB = new Date(b.start);
+        return dateA - dateB;
+    });
+    
     const eventsCountdown = new EventsCountdown();
-    eventsArr.forEach((e) => {
+    sortedEvents.forEach((e) => {
         eventsCountdown.addEvent(new Event(e.title, e.start, e.end));
     });
     const eventsHtml = new EventsHtml(eventsCountdown);
@@ -110,12 +118,12 @@ async function renderAllEvents() {
 
     // Handle timeline chart
     const timelineContainer = document.getElementById("timeline");
-    if (eventsArr.length > 0) {
+    if (sortedEvents.length > 0) {
         // Show timeline and render chart
         timelineContainer.style.display = "block";
 
         // Prepare timeline data with validation
-        window.timelineData = eventsArr
+        window.timelineData = sortedEvents
             .map((e) => {
                 const startDate = new Date(e.start);
                 const endDate = e.end
