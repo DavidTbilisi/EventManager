@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed · Chronicle</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("chronicle-theme");
+                var dark = t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                document.documentElement.dataset.theme = dark ? "dark" : "light";
+            } catch (e) { }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .seed-page {
+            max-width: 640px;
+            padding: 4rem 2rem;
+        }
+
+        .seed-card {
+            border: 1px solid var(--rule);
+            background: var(--paper-soft);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .seed-card h1 {
+            font-family: var(--serif);
+            font-style: italic;
+            font-weight: 400;
+            font-size: 2.4rem;
+            line-height: 1;
+            margin: 0;
+        }
+
+        .seed-card h1 .dot {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        .seed-card p.lede {
+            font-family: var(--serif);
+            font-size: 1rem;
+            color: var(--ink-soft);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .seed-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .seed-row .field {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .seed-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            border-top: 1px solid var(--rule-soft);
+            padding-top: 1.25rem;
+        }
+
+        .btn-primary {
+            font-family: var(--serif);
+            font-style: italic;
+            font-size: 1rem;
+            background: var(--ink);
+            color: var(--paper);
+            border: 0;
+            padding: 0.55rem 1.4rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent);
+        }
+
+        .btn-danger {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            background: transparent;
+            color: var(--ink-mute);
+            border: 0;
+            border-bottom: 1px solid var(--rule);
+            padding: 0.4rem 0;
+            cursor: pointer;
+            transition: color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .btn-danger:hover {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .seed-actions a {
+            margin-left: auto;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--ink-mute);
+            text-decoration: none;
+            border-bottom: 1px solid var(--rule);
+            padding-bottom: 0.2rem;
+            transition: color 0.2s ease;
+        }
+
+        .seed-actions a:hover {
+            color: var(--accent);
+        }
+
+        .seed-status {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--ink-mute);
+            min-height: 1.2em;
+            margin: 0;
+        }
+
+        .seed-status.ok {
+            color: var(--accent);
+        }
+
+        .seed-warn {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--ink-faint);
+            border-left: 2px solid var(--accent);
+            padding: 0.4rem 0 0.4rem 0.75rem;
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container seed-page">
+        <div class="seed-card">
+            <h1>Seed<span class="dot">.</span></h1>
+            <p class="lede">Populate cookies with mock events to stress-test the layout.
+                The main app reads cookies when you're signed out — sign out first if
+                seeded events don't show up.</p>
+
+            <div class="seed-row">
+                <div class="field">
+                    <label for="count">How many</label>
+                    <input type="number" id="count" min="1" max="500" value="20">
+                </div>
+                <div class="field">
+                    <label for="distribution">Distribution</label>
+                    <select id="distribution">
+                        <option value="mixed" selected>Mixed (past &amp; future)</option>
+                        <option value="future">All future</option>
+                        <option value="past">All past</option>
+                        <option value="near">Near-term (±30 days)</option>
+                        <option value="far">Far-out (±2 years)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="seed-actions">
+                <button id="seed-btn" class="btn-primary" type="button">Seed &amp; view</button>
+                <button id="clear-btn" class="btn-danger" type="button">Clear all</button>
+                <a href="index.html">Back to app</a>
+            </div>
+
+            <p id="status" class="seed-status"></p>
+
+            <p class="seed-warn">Cookie-only. Will not touch Firestore.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        const TITLES = [
+            "Anniversary", "Project launch", "Wedding", "Conference talk",
+            "Vacation", "Doctor appointment", "Lease renewal", "Tax day",
+            "Birthday", "Quarterly review", "Album release", "Marathon",
+            "Visa expires", "Apartment viewing", "Coffee with Anna",
+            "Tbilisi trip", "Code review", "Yoga retreat", "Dentist",
+            "Move out", "Submission deadline", "Festival",
+            "Annual checkup", "Surprise party", "Book club", "Demo day",
+            "Hiking weekend", "Friend visit", "Performance review",
+            "Visa interview", "Concert", "Family dinner", "Workshop",
+            "Project freeze", "Sprint kickoff", "Beta launch",
+        ];
+
+        function pad(n) { return String(n).padStart(2, "0"); }
+        function toDTLocal(d) {
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+        function uuid() {
+            if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+            return "local-" + Math.random().toString(36).slice(2, 10) + "-" + Date.now();
+        }
+
+        function offsetDaysFor(distribution, i, n) {
+            const r = Math.random();
+            switch (distribution) {
+                case "future": return r * 720; // 0..2 years out
+                case "past": return -r * 365;  // 0..1 year ago
+                case "near": return (r - 0.5) * 60; // ±30 days
+                case "far": return (r - 0.5) * 1460; // ±2 years
+                case "mixed":
+                default:
+                    // 30% past (up to 6mo back), 70% future (up to 2y out)
+                    return r < 0.3 ? -r * 600 : (r - 0.3) * 1000;
+            }
+        }
+
+        function makeEvent(i, n, distribution) {
+            const days = offsetDaysFor(distribution, i, n);
+            const start = new Date(Date.now() + days * 86400000);
+            // Bias to "tidy" times (top of hour, half hour)
+            start.setMinutes(Math.random() < 0.5 ? 0 : 30, 0, 0);
+
+            const title = TITLES[i % TITLES.length] + (i >= TITLES.length ? ` ${Math.floor(i / TITLES.length) + 1}` : "");
+            const ev = { id: uuid(), title, start: toDTLocal(start) };
+
+            // ~30% have a duration, up to 10 days
+            if (Math.random() < 0.3) {
+                const durHours = 1 + Math.random() * 240;
+                const end = new Date(start.getTime() + durHours * 3600000);
+                ev.end = toDTLocal(end);
+            }
+            return ev;
+        }
+
+        function readCookie() {
+            const c = document.cookie.split("; ").find(r => r.startsWith("events="));
+            if (!c) return [];
+            try { return JSON.parse(decodeURIComponent(c.split("=")[1])); }
+            catch (e) { return []; }
+        }
+
+        function writeCookie(events) {
+            document.cookie = `events=${encodeURIComponent(JSON.stringify(events))}; path=/; max-age=31536000`;
+        }
+
+        const status = document.getElementById("status");
+        function setStatus(msg, ok = false) {
+            status.textContent = msg;
+            status.classList.toggle("ok", ok);
+        }
+
+        document.getElementById("seed-btn").addEventListener("click", () => {
+            const n = Math.max(1, Math.min(500, parseInt(document.getElementById("count").value, 10) || 20));
+            const distribution = document.getElementById("distribution").value;
+            const fresh = [];
+            for (let i = 0; i < n; i++) fresh.push(makeEvent(i, n, distribution));
+            // Append to anything already there.
+            const existing = readCookie();
+            writeCookie(existing.concat(fresh));
+            setStatus(`Seeded ${n} events. Redirecting…`, true);
+            setTimeout(() => { location.href = "index.html"; }, 600);
+        });
+
+        document.getElementById("clear-btn").addEventListener("click", () => {
+            writeCookie([]);
+            setStatus("Cleared all cookie events.", true);
+        });
+    </script>
+</body>
+
+</html>

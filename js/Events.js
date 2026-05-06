@@ -1,8 +1,11 @@
+import { formatDuration } from "./helpers.js";
+
 export class Event {
     constructor(name, date, endDate = null, id = null) {
         this.id = id;
         this.name = name;
         this.date = moment(date); // Store as moment object
+        this.hasExplicitEnd = !!endDate;
         // If endDate is not provided, set it to the next day after the start date
         this.endDate = endDate ? moment(endDate) : moment(date).add(1, 'days');
         this.years = 0;
@@ -46,6 +49,14 @@ export class Event {
             weekday: this.date.format('ddd'), // Get weekday name
             monthName: this.date.format('MMM') // Get month name
         };
+    }
+
+    // Humane label for the event's own duration (start → end).
+    // Returns null when no explicit end was set.
+    getDurationLabel() {
+        if (!this.hasExplicitEnd) return null;
+        const ms = this.endDate.diff(this.date);
+        return formatDuration(ms);
     }
 
     // Returns the dominant unit for the hero countdown line

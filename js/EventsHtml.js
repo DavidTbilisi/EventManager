@@ -6,23 +6,29 @@ export class EventsHtml {
     }
 
     renderEvents() {
-        this.eventsList.innerHTML = "";
         this.eventsCountdown.updateDurations();
         const events = this.eventsCountdown.getEvents();
 
+        // Build everything off-DOM, then swap it in atomically so the list
+        // never goes through a 0-height intermediate state — preserves scroll
+        // and avoids flicker with many cards.
+        const fragment = document.createDocumentFragment();
+
         if (events.length === 0) {
             const li = document.createElement("li");
+            li.className = "event-empty";
             const h3 = document.createElement("h3");
             h3.textContent = "Nothing yet on the horizon.";
             const p = document.createElement("p");
             p.textContent = "Inscribe your first event above";
             li.appendChild(h3);
             li.appendChild(p);
-            this.eventsList.appendChild(li);
-            return;
+            fragment.appendChild(li);
+        } else {
+            events.forEach((event) => fragment.appendChild(this.createEventHtml(event)));
         }
 
-        events.forEach((event) => this.renderEvent(event));
+        this.eventsList.replaceChildren(fragment);
     }
 
     renderEvent(event) {
@@ -42,20 +48,20 @@ export class EventsHtml {
         const article = document.createElement("article");
         article.className = "event-card";
 
-        // Header — kicker date + status
-        const header = document.createElement("header");
-        header.className = "event-header";
+        // Kicker — date metadata + inline status
         const kicker = document.createElement("p");
         kicker.className = "event-kicker";
-        kicker.textContent = event.date
-            .format("ddd · DD MMM YYYY · HH:mm")
+        const kickerDate = document.createElement("span");
+        kickerDate.className = "event-kicker-date";
+        kickerDate.textContent = event.date
+            .format("ddd · DD MMM · HH:mm")
             .toUpperCase();
+        kicker.appendChild(kickerDate);
         const status = document.createElement("span");
         status.className = `event-status ${isPast ? "status-past" : "status-future"}`;
         status.textContent = isPast ? "Past" : "Upcoming";
-        header.appendChild(kicker);
-        header.appendChild(status);
-        article.appendChild(header);
+        kicker.appendChild(status);
+        article.appendChild(kicker);
 
         // Title
         const title = document.createElement("h3");
@@ -78,7 +84,7 @@ export class EventsHtml {
         hero.appendChild(heroUnit);
         article.appendChild(hero);
 
-        // Full breakdown — show all 7 units; dim zero leading values
+        // Compact inline breakdown — value + label, zeros dimmed
         const breakdown = document.createElement("dl");
         breakdown.className = "event-breakdown";
         const units = [
@@ -94,20 +100,33 @@ export class EventsHtml {
             const cell = document.createElement("div");
             cell.className = "unit";
             if (value === 0) cell.classList.add("is-zero");
-            const dt = document.createElement("dt");
-            dt.textContent = label;
             const dd = document.createElement("dd");
             dd.textContent = String(value).padStart(2, "0");
-            cell.appendChild(dt);
+            const dt = document.createElement("dt");
+            dt.textContent = label;
             cell.appendChild(dd);
+            cell.appendChild(dt);
             breakdown.appendChild(cell);
         });
         article.appendChild(breakdown);
 
-        // Action slot — main.js fills this with Edit / Remove buttons
-        const actions = document.createElement("footer");
+        // Footer row — actions on the left, duration aside on the right.
+        const foot = document.createElement("footer");
+        foot.className = "event-foot";
+
+        const actions = document.createElement("div");
         actions.className = "event-actions";
-        article.appendChild(actions);
+        foot.appendChild(actions);
+
+        const durationLabel = event.getDurationLabel();
+        if (durationLabel) {
+            const dur = document.createElement("p");
+            dur.className = "event-duration";
+            dur.textContent = durationLabel;
+            foot.appendChild(dur);
+        }
+
+        article.appendChild(foot);
 
         li.appendChild(article);
         return li;
