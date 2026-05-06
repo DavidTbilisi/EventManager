@@ -3,35 +3,24 @@ import { Event } from "./Events.js";
 import { EventsHtml } from "./EventsHtml.js";
 import AuthService from "./AuthService.js";
 import HybridStorage from "./HybridStorage.js";
+import { toDateTimeLocalValue, validateEvent } from "./helpers.js";
+import {
+    THEME_LABELS,
+    getUserTheme,
+    setUserTheme,
+    nextTheme,
+    effectiveTheme,
+} from "./theme.js";
 
 const authService = new AuthService();
 const storage = new HybridStorage(authService);
 
 // ─── Theme ─────────────────────────────────────────────
-const THEME_KEY = "chronicle-theme";
-const THEME_LABELS = { auto: "Auto", light: "Light", dark: "Dark" };
-const THEME_CYCLE = ["auto", "light", "dark"];
 const darkMql = window.matchMedia("(prefers-color-scheme: dark)");
-
-function getUserTheme() {
-    try {
-        const t = localStorage.getItem(THEME_KEY);
-        return t === "light" || t === "dark" ? t : "auto";
-    } catch (e) {
-        return "auto";
-    }
-}
-
-function setUserTheme(theme) {
-    try {
-        if (theme === "auto") localStorage.removeItem(THEME_KEY);
-        else localStorage.setItem(THEME_KEY, theme);
-    } catch (e) { /* ignore */ }
-}
 
 function applyTheme() {
     const user = getUserTheme();
-    const effective = user === "auto" ? (darkMql.matches ? "dark" : "light") : user;
+    const effective = effectiveTheme(user, darkMql.matches);
     document.documentElement.dataset.theme = effective;
     document.documentElement.dataset.userTheme = user;
     const toggle = document.getElementById("theme-toggle");
@@ -43,9 +32,7 @@ function applyTheme() {
 }
 
 function cycleTheme() {
-    const cur = getUserTheme();
-    const next = THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length];
-    setUserTheme(next);
+    setUserTheme(nextTheme(getUserTheme()));
     applyTheme();
 }
 
@@ -67,34 +54,12 @@ const form = document.getElementById("event-form");
 const submitBtn = document.getElementById("event-submit");
 const cancelBtn = document.getElementById("cancel-edit-btn");
 
-function pad(n) {
-    return String(n).padStart(2, "0");
-}
-
-// Format a stored datetime string back into the local-time string a
-// <input type="datetime-local"> expects. Avoids the UTC shift caused by
-// toISOString().
-function toDateTimeLocalValue(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return "";
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function toEventObj(formData) {
     return {
         title: formData.get("event-name"),
         start: formData.get("event-start-time"),
         end: formData.get("event-end-time") || undefined,
     };
-}
-
-function validateEvent(ev) {
-    if (!ev.title || !ev.start) return "Title and start time are required.";
-    if (ev.end && new Date(ev.end) < new Date(ev.start)) {
-        return "End time must be on or after the start time.";
-    }
-    return null;
 }
 
 function enterEditMode(ev) {
@@ -157,110 +122,130 @@ async function loadEvents() {
     }
 }
 
+// Tick render — rebuilds event cards and the stats panel from cache so
+// countdowns and the NEXT/LAST tiles advance every second without hitting
+// storage.
 function render() {
     const eventsCountdown = new EventsCountdown();
     cachedEvents.forEach((e) => {
         eventsCountdown.addEvent(new Event(e.title, e.start, e.end, e.id));
     });
     new EventsHtml(eventsCountdown).renderEvents();
-    renderTimeline();
     addEventActions();
+    renderStatistics();
 }
 
-function renderTimeline() {
-    const container = document.getElementById("timeline");
+function renderStatistics() {
+    const container = document.getElementById("stats");
     if (!container) return;
     container.innerHTML = "";
 
     if (cachedEvents.length === 0) {
         const empty = document.createElement("p");
-        empty.className = "timeline-empty";
-        empty.textContent = "Nothing to plot.";
-        container.appendChild(empty);
-        return;
-    }
-
-    const items = cachedEvents
-        .map((e) => {
-            const start = new Date(e.start);
-            const end = e.end
-                ? new Date(e.end)
-                : new Date(start.getTime() + 24 * 60 * 60 * 1000);
-            if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-            return { title: e.title, start, end };
-        })
-        .filter(Boolean);
-
-    if (items.length === 0) {
-        const empty = document.createElement("p");
-        empty.className = "timeline-empty";
-        empty.textContent = "Nothing to plot.";
+        empty.className = "stats-empty";
+        empty.textContent = "Nothing to count.";
         container.appendChild(empty);
         return;
     }
 
     const now = Date.now();
-    const minT = Math.min(now, ...items.map((i) => i.start.getTime()));
-    const maxT = Math.max(now, ...items.map((i) => i.end.getTime()));
-    const span = Math.max(maxT - minT, 1);
+    const items = cachedEvents
+        .map((e) => {
+            const start = new Date(e.start).getTime();
+            const end = e.end ? new Date(e.end).getTime() : start;
+            if (isNaN(start) || isNaN(end)) return null;
+            return { title: e.title, start, end };
+        })
+        .filter(Boolean);
 
-    const fmt = (t) => {
-        const d = new Date(t);
-        const m = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()];
-        return `${m} ${d.getFullYear()}`;
-    };
+    const past = items.filter((i) => i.end < now);
+    const ahead = items.filter((i) => i.end >= now);
 
-    const axis = document.createElement("div");
-    axis.className = "timeline-axis";
-    const start = document.createElement("span");
-    start.textContent = fmt(minT);
-    const end = document.createElement("span");
-    end.textContent = fmt(maxT);
-    axis.appendChild(start);
-    axis.appendChild(end);
+    const nextItems = ahead
+        .filter((i) => i.start > now)
+        .sort((a, b) => a.start - b.start)
+        .slice(0, 3);
+    const lastItems = past.sort((a, b) => b.end - a.end).slice(0, 3);
 
-    const nowMarker = document.createElement("span");
-    nowMarker.className = "timeline-now";
-    const nowPct = ((now - minT) / span) * 100;
-    nowMarker.style.left = `${Math.max(0, Math.min(100, nowPct))}%`;
-    axis.appendChild(nowMarker);
-    container.appendChild(axis);
-
-    const tracks = document.createElement("ul");
-    tracks.className = "timeline-tracks";
-
-    items.forEach((it) => {
-        const isPast = it.end.getTime() < now;
-        const li = document.createElement("li");
-        li.className = "timeline-track";
-        if (isPast) li.classList.add("is-past");
-
-        const label = document.createElement("span");
-        label.className = "timeline-label";
-        label.textContent = it.title;
-        li.appendChild(label);
-
-        const wrap = document.createElement("div");
-        wrap.className = "timeline-bar-wrap";
-
-        const leftPct = ((it.start.getTime() - minT) / span) * 100;
-        const widthPct = Math.max(((it.end.getTime() - it.start.getTime()) / span) * 100, 0.6);
-        const bar = document.createElement("span");
-        bar.className = "timeline-bar";
-        bar.style.left = `${leftPct}%`;
-        bar.style.width = `${widthPct}%`;
-        wrap.appendChild(bar);
-
-        const marker = document.createElement("span");
-        marker.className = "timeline-marker";
-        marker.style.left = `${nowPct}%`;
-        wrap.appendChild(marker);
-
-        li.appendChild(wrap);
-        tracks.appendChild(li);
+    const tiles = document.createElement("dl");
+    tiles.className = "stats-tiles";
+    const tileData = [
+        ["Total", String(items.length)],
+        ["Past", String(past.length)],
+        ["Ahead", String(ahead.length)],
+        ["Next", nextItems[0] ? formatDuration(nextItems[0].start - now) : "—"],
+    ];
+    tileData.forEach(([label, value]) => {
+        const tile = document.createElement("div");
+        tile.className = "stats-tile";
+        const dd = document.createElement("dd");
+        dd.textContent = value;
+        const dt = document.createElement("dt");
+        dt.textContent = label;
+        tile.appendChild(dd);
+        tile.appendChild(dt);
+        tiles.appendChild(tile);
     });
+    container.appendChild(tiles);
 
-    container.appendChild(tracks);
+    if (nextItems.length || lastItems.length) {
+        const groups = document.createElement("div");
+        groups.className = "stats-groups";
+        if (nextItems.length) {
+            groups.appendChild(buildStatGroup("To come", nextItems, (it) => moment(it.start).fromNow()));
+        }
+        if (lastItems.length) {
+            groups.appendChild(buildStatGroup("Past", lastItems, (it) => moment(it.end).fromNow()));
+        }
+        container.appendChild(groups);
+    }
+}
+
+function buildStatGroup(label, items, whenOf) {
+    const group = document.createElement("div");
+    group.className = "stats-group";
+    const heading = document.createElement("h3");
+    heading.className = "stats-group-label";
+    heading.textContent = label;
+    group.appendChild(heading);
+
+    const list = document.createElement("ul");
+    list.className = "stats-lines";
+    items.forEach((it) => {
+        const li = document.createElement("li");
+        const name = document.createElement("span");
+        name.className = "stats-line-title";
+        name.textContent = it.title;
+        const sep = document.createElement("span");
+        sep.className = "stats-line-sep";
+        sep.textContent = "·";
+        const when = document.createElement("span");
+        when.className = "stats-line-when";
+        when.textContent = whenOf(it);
+        li.appendChild(name);
+        li.appendChild(sep);
+        li.appendChild(when);
+        list.appendChild(li);
+    });
+    group.appendChild(list);
+    return group;
+}
+
+function formatDuration(ms) {
+    const abs = Math.abs(ms);
+    const sec = Math.floor(abs / 1000);
+    const min = Math.floor(sec / 60);
+    const hr = Math.floor(min / 60);
+    const day = Math.floor(hr / 24);
+    const wk = Math.floor(day / 7);
+    const yr = Math.floor(day / 365);
+
+    if (yr > 0) return `${yr}Y ${day - yr * 365}D`;
+    if (wk > 0) return `${wk}W ${day - wk * 7}D`;
+    if (day > 0) return `${day}D ${hr - day * 24}H`;
+    if (hr > 0) return `${hr}H ${min - hr * 60}M`;
+    if (min > 0) return `${min}M ${sec - min * 60}S`;
+    return `${sec}S`;
 }
 
 function addEventActions() {
@@ -312,13 +297,16 @@ function updateStorageInfo() {
     if (storageInfo.type === "cloud") {
         status.className = "cloud-status";
         const label = document.createElement("strong");
-        label.textContent = "☁️ Cloud Sync Active";
+        label.textContent = "Cloud";
         status.appendChild(label);
-        status.appendChild(document.createTextNode(` - ${storageInfo.description} `));
+        const name = storageInfo.user && storageInfo.user.name;
+        if (name) {
+            status.appendChild(document.createTextNode(` · ${name}`));
+        }
         const btn = document.createElement("button");
         btn.id = "sign-out-btn";
         btn.className = "small-btn";
-        btn.textContent = "Sign Out";
+        btn.textContent = "Sign out";
         btn.onclick = async () => {
             await authService.signOut();
         };
@@ -326,13 +314,13 @@ function updateStorageInfo() {
     } else {
         status.className = "local-status";
         const label = document.createElement("strong");
-        label.textContent = "💾 Local Storage";
+        label.textContent = "Local";
         status.appendChild(label);
-        status.appendChild(document.createTextNode(` - ${storageInfo.description} `));
+        status.appendChild(document.createTextNode(" · cookies"));
         const btn = document.createElement("button");
         btn.id = "sign-in-btn";
         btn.className = "small-btn";
-        btn.textContent = "Sign in for Cloud Sync";
+        btn.textContent = "Sign in";
         btn.onclick = async () => {
             try {
                 await authService.signInWithGoogle();

@@ -41,22 +41,25 @@
             </div>
         </header>
 
+        <section class="stats-section" aria-labelledby="stats-heading">
+            <h2 class="section-label" id="stats-heading"><span>Statistics</span><span class="rule"></span><span class="section-num">01</span></h2>
+            <div id="stats"></div>
+        </section>
+
         <section class="compose" aria-labelledby="compose-heading">
-            <h2 class="section-label" id="compose-heading"><span>Inscribe</span><span class="rule"></span><span class="section-num">01</span></h2>
+            <h2 class="section-label" id="compose-heading"><span>Inscribe</span><span class="rule"></span><span class="section-num">02</span></h2>
             <form id="event-form" autocomplete="off">
                 <div class="field field-title">
                     <label for="event-name">The matter</label>
                     <input type="text" id="event-name" name="event-name" required placeholder="What's coming, or what was?">
                 </div>
-                <div class="field-row">
-                    <div class="field">
-                        <label for="event-start-time">Begins</label>
-                        <input type="datetime-local" id="event-start-time" name="event-start-time" required>
-                    </div>
-                    <div class="field">
-                        <label for="event-end-time">Ends <span class="optional">optional</span></label>
-                        <input type="datetime-local" id="event-end-time" name="event-end-time">
-                    </div>
+                <div class="field">
+                    <label for="event-start-time">Begins</label>
+                    <input type="datetime-local" id="event-start-time" name="event-start-time" required>
+                </div>
+                <div class="field">
+                    <label for="event-end-time">Ends <span class="optional">optional</span></label>
+                    <input type="datetime-local" id="event-end-time" name="event-end-time">
                 </div>
                 <div class="form-actions">
                     <input type="submit" id="event-submit" value="Add event">
@@ -66,13 +69,8 @@
         </section>
 
         <section class="events-section" aria-labelledby="events-heading">
-            <h2 class="section-label" id="events-heading"><span>The chronicle</span><span class="rule"></span><span class="section-num">02</span></h2>
+            <h2 class="section-label" id="events-heading"><span>The chronicle</span><span class="rule"></span><span class="section-num">03</span></h2>
             <ul id="events"></ul>
-        </section>
-
-        <section class="timeline-section" aria-labelledby="timeline-heading">
-            <h2 class="section-label" id="timeline-heading"><span>Timeline</span><span class="rule"></span><span class="section-num">03</span></h2>
-            <div id="timeline"></div>
         </section>
 
         <footer class="colophon">
