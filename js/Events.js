@@ -1,5 +1,6 @@
 export class Event {
-    constructor(name, date, endDate = null) {
+    constructor(name, date, endDate = null, id = null) {
+        this.id = id;
         this.name = name;
         this.date = moment(date); // Store as moment object
         // If endDate is not provided, set it to the next day after the start date
@@ -45,5 +46,25 @@ export class Event {
             weekday: this.date.format('ddd'), // Get weekday name
             monthName: this.date.format('MMM') // Get month name
         };
+    }
+
+    // Returns the dominant unit for the hero countdown line
+    // (e.g. "142 days remaining" / "5 hours ago").
+    getLeadCount() {
+        const now = moment();
+        const isPast = now.isAfter(this.date);
+        const dur = moment.duration(isPast ? now.diff(this.date) : this.date.diff(now));
+        const totalSec = Math.abs(dur.asSeconds());
+        if (totalSec < 60) return { value: Math.floor(totalSec), unit: totalSec === 1 ? 'second' : 'seconds', isPast };
+        if (totalSec < 3600) {
+            const v = Math.floor(totalSec / 60);
+            return { value: v, unit: v === 1 ? 'minute' : 'minutes', isPast };
+        }
+        if (totalSec < 86400) {
+            const v = Math.floor(totalSec / 3600);
+            return { value: v, unit: v === 1 ? 'hour' : 'hours', isPast };
+        }
+        const v = Math.floor(totalSec / 86400);
+        return { value: v, unit: v === 1 ? 'day' : 'days', isPast };
     }
 }

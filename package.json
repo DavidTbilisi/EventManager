@@ -1,0 +1,17 @@
+{
+  "name": "events-countdown",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Editorial countdown app — static, build-less, with Vitest unit tests.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "jsdom": "^24.0.0",
+    "moment": "^2.29.4"
+  }
+}

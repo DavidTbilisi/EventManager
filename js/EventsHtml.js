@@ -2,91 +2,121 @@ export class EventsHtml {
     constructor(eventsCountdown, updateIn = null) {
         this.eventsCountdown = eventsCountdown;
         this.eventsList = document.getElementById("events");
-        this.updateIn = updateIn; // Update every second
+        this.updateIn = updateIn;
     }
 
     renderEvents() {
-        this.eventsList.innerHTML = ""; // Clear the previous content
+        this.eventsList.innerHTML = "";
         this.eventsCountdown.updateDurations();
         const events = this.eventsCountdown.getEvents();
 
         if (events.length === 0) {
-            // Show a message when no events exist
-            const noEventsMessage = document.createElement("li");
-            noEventsMessage.innerHTML = `
-                <div style="text-align: center; padding: 20px; color: #666;">
-                    <h3>No events yet</h3>
-                    <p>Add your first event using the form above!</p>
-                </div>
-            `;
-            this.eventsList.appendChild(noEventsMessage);
-        } else {
-            events.forEach((event) => {
-                this.renderEvent(event);
-            });
+            const li = document.createElement("li");
+            const h3 = document.createElement("h3");
+            h3.textContent = "Nothing yet on the horizon.";
+            const p = document.createElement("p");
+            p.textContent = "Inscribe your first event above";
+            li.appendChild(h3);
+            li.appendChild(p);
+            this.eventsList.appendChild(li);
+            return;
         }
+
+        events.forEach((event) => this.renderEvent(event));
     }
 
     renderEvent(event) {
-        const eventHtml = this.createEventHtml(event);
-        this.eventsList.appendChild(eventHtml);
+        this.eventsList.appendChild(this.createEventHtml(event));
     }
 
     createEventHtml(event) {
-        let uniqueId = Symbol(event.name);
-        const eventDuration = event.getDuration();
-        const timeDirection = eventDuration.isPast ? "past" : "future";
-        const eventHtml = document.createElement("li");
-        eventHtml.classList.add("event");
-        eventHtml.innerHTML = `
-        <div class="countdown" id="${Symbol.keyFor(Symbol.for(event.name))}">
-            <h2>${event.name}</h2>
-            <div class="event-date">
-                <div class="weekday">${eventDuration.weekday}</div>
-                <div class="month-name">${eventDuration.monthName}</div>
-                <div class="event-day">${event.date.format("D")}</div>
-                <div class="event-year">${event.date.format("YYYY")}</div>
-            </div>
-            <div class="years">${eventDuration.years} years</div>
-            <div class="months">${eventDuration.months} months</div>
-            <div class="weeks">${eventDuration.weeks} weeks</div>
-            <div class="days">${eventDuration.days} days</div>
-            <div class="hours">${eventDuration.hours} hours</div>
-            <div class="minutes">${eventDuration.minutes} minutes</div>
-            <div class="seconds">${eventDuration.seconds} seconds</div>
-            <div class="time-direction ${timeDirection}">${timeDirection}</div>
-        </div>
-        `;
-        return eventHtml;
-    }
+        const duration = event.getDuration();
+        const lead = event.getLeadCount();
+        const isPast = duration.isPast;
 
-    renderTimeline() {
-        const timelineData = this.eventsCountdown.prepareTimelineData();
-        if (timelineData && timelineData.length > 0) {
-            window.timelineData = timelineData;
-            google.charts.setOnLoadCallback(drawChart);
-        }
+        const li = document.createElement("li");
+        li.classList.add("event");
+        if (isPast) li.classList.add("is-past");
+        if (event.id) li.dataset.eventId = event.id;
+
+        const article = document.createElement("article");
+        article.className = "event-card";
+
+        // Header — kicker date + status
+        const header = document.createElement("header");
+        header.className = "event-header";
+        const kicker = document.createElement("p");
+        kicker.className = "event-kicker";
+        kicker.textContent = event.date
+            .format("ddd · DD MMM YYYY · HH:mm")
+            .toUpperCase();
+        const status = document.createElement("span");
+        status.className = `event-status ${isPast ? "status-past" : "status-future"}`;
+        status.textContent = isPast ? "Past" : "Upcoming";
+        header.appendChild(kicker);
+        header.appendChild(status);
+        article.appendChild(header);
+
+        // Title
+        const title = document.createElement("h3");
+        title.className = "event-title";
+        title.textContent = event.name;
+        article.appendChild(title);
+
+        // Hero countdown line
+        const hero = document.createElement("div");
+        hero.className = "event-hero";
+        const heroValue = document.createElement("span");
+        heroValue.className = "event-hero-value";
+        heroValue.textContent = lead.value.toLocaleString();
+        const heroUnit = document.createElement("span");
+        heroUnit.className = "event-hero-unit";
+        heroUnit.textContent = isPast
+            ? `${lead.unit} ago`
+            : `${lead.unit} remaining`;
+        hero.appendChild(heroValue);
+        hero.appendChild(heroUnit);
+        article.appendChild(hero);
+
+        // Full breakdown — show all 7 units; dim zero leading values
+        const breakdown = document.createElement("dl");
+        breakdown.className = "event-breakdown";
+        const units = [
+            ["Y", duration.years],
+            ["M", duration.months],
+            ["W", duration.weeks],
+            ["D", duration.days],
+            ["H", duration.hours],
+            ["M", duration.minutes],
+            ["S", duration.seconds],
+        ];
+        units.forEach(([label, value]) => {
+            const cell = document.createElement("div");
+            cell.className = "unit";
+            if (value === 0) cell.classList.add("is-zero");
+            const dt = document.createElement("dt");
+            dt.textContent = label;
+            const dd = document.createElement("dd");
+            dd.textContent = String(value).padStart(2, "0");
+            cell.appendChild(dt);
+            cell.appendChild(dd);
+            breakdown.appendChild(cell);
+        });
+        article.appendChild(breakdown);
+
+        // Action slot — main.js fills this with Edit / Remove buttons
+        const actions = document.createElement("footer");
+        actions.className = "event-actions";
+        article.appendChild(actions);
+
+        li.appendChild(article);
+        return li;
     }
 
     startRendering() {
         this.renderEvents();
-        // Only render timeline if there are events
-        if (this.eventsCountdown.getEvents().length > 0) {
-            this.renderTimeline();
-        }
         if (this.updateIn) {
-            setInterval(() => this.renderEvents(), this.updateIn); // Update every second
-        }
-    }
-
-    // make one event full screen
-    fullScreen(eventName) {
-        const event = this.eventsCountdown.getEventByName(eventName);
-        console.log(event);
-        if (event) {
-            const eventHtml = this.createEventHtml(event);
-            eventHtml.classList.add("full-screen");
-            document.body.appendChild(eventHtml);
+            setInterval(() => this.renderEvents(), this.updateIn);
         }
     }
 }

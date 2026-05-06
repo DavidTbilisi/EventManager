@@ -4,17 +4,81 @@ import { EventsHtml } from "./EventsHtml.js";
 import AuthService from "./AuthService.js";
 import HybridStorage from "./HybridStorage.js";
 
-// --- Initialize hybrid storage ---
 const authService = new AuthService();
 const storage = new HybridStorage(authService);
 
-// --- Hybrid storage wrapper functions (keeps your existing interface) ---
-async function getEventsFromStorage() {
-    return await storage.getEvents();
+// ─── Theme ─────────────────────────────────────────────
+const THEME_KEY = "chronicle-theme";
+const THEME_LABELS = { auto: "Auto", light: "Light", dark: "Dark" };
+const THEME_CYCLE = ["auto", "light", "dark"];
+const darkMql = window.matchMedia("(prefers-color-scheme: dark)");
+
+function getUserTheme() {
+    try {
+        const t = localStorage.getItem(THEME_KEY);
+        return t === "light" || t === "dark" ? t : "auto";
+    } catch (e) {
+        return "auto";
+    }
 }
 
-async function setEventsToStorage(events) {
-    await storage.saveAllEvents(events);
+function setUserTheme(theme) {
+    try {
+        if (theme === "auto") localStorage.removeItem(THEME_KEY);
+        else localStorage.setItem(THEME_KEY, theme);
+    } catch (e) { /* ignore */ }
+}
+
+function applyTheme() {
+    const user = getUserTheme();
+    const effective = user === "auto" ? (darkMql.matches ? "dark" : "light") : user;
+    document.documentElement.dataset.theme = effective;
+    document.documentElement.dataset.userTheme = user;
+    const toggle = document.getElementById("theme-toggle");
+    if (toggle) {
+        toggle.dataset.theme = user;
+        const label = toggle.querySelector(".theme-label");
+        if (label) label.textContent = THEME_LABELS[user];
+    }
+}
+
+function cycleTheme() {
+    const cur = getUserTheme();
+    const next = THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length];
+    setUserTheme(next);
+    applyTheme();
+}
+
+document.getElementById("theme-toggle").addEventListener("click", cycleTheme);
+darkMql.addEventListener("change", () => {
+    if (getUserTheme() === "auto") applyTheme();
+});
+applyTheme();
+// ───────────────────────────────────────────────────────
+
+
+let cachedEvents = [];
+let editingId = null;
+let loadInFlight = false;
+let loadPending = false;
+let lastStorageType = null;
+
+const form = document.getElementById("event-form");
+const submitBtn = document.getElementById("event-submit");
+const cancelBtn = document.getElementById("cancel-edit-btn");
+
+function pad(n) {
+    return String(n).padStart(2, "0");
+}
+
+// Format a stored datetime string back into the local-time string a
+// <input type="datetime-local"> expects. Avoids the UTC shift caused by
+// toISOString().
+function toDateTimeLocalValue(value) {
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function toEventObj(formData) {
@@ -25,170 +89,214 @@ function toEventObj(formData) {
     };
 }
 
-// Edit event by index
-async function editEventInStorage(index, newEvent) {
-    await storage.updateEvent(index, newEvent);
-    renderAllEvents();
+function validateEvent(ev) {
+    if (!ev.title || !ev.start) return "Title and start time are required.";
+    if (ev.end && new Date(ev.end) < new Date(ev.start)) {
+        return "End time must be on or after the start time.";
+    }
+    return null;
 }
 
-// Remove event by index
-async function removeEventFromStorage(index) {
-    await storage.removeEvent(index);
-    renderAllEvents();
+function enterEditMode(ev) {
+    editingId = ev.id;
+    form["event-name"].value = ev.title;
+    form["event-start-time"].value = toDateTimeLocalValue(ev.start);
+    form["event-end-time"].value = ev.end ? toDateTimeLocalValue(ev.end) : "";
+    submitBtn.value = "Save changes";
+    cancelBtn.style.display = "inline";
 }
 
-// Add edit/remove buttons to each event in the UI
-function addEventActions(sortedEvents) {
-    const eventList = document.getElementById("events");
-    if (!eventList) return;
-    // Remove existing buttons to avoid duplicates
-    eventList.querySelectorAll(".event-action").forEach((btn) => btn.remove());
-    // Add buttons to each event
-    Array.from(eventList.children).forEach((li, idx) => {
-        // Edit button
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "Edit";
-        editBtn.className = "event-action";
-        editBtn.onclick = async () => {
-            // Use the sorted events array to get the correct event
-            const event = sortedEvents[idx];
-            // Fill form with event data
-            form["event-name"].value = event.title;
-            
-            // Format datetime for datetime-local input
-            if (event.start) {
-                const startDate = new Date(event.start);
-                form["event-start-time"].value = startDate.toISOString().slice(0, 16);
-            }
-            if (event.end) {
-                const endDate = new Date(event.end);
-                form["event-end-time"].value = endDate.toISOString().slice(0, 16);
-            } else {
-                form["event-end-time"].value = "";
-            }
-            
-            // Find the original index in the unsorted array for storage operations
-            const allEvents = await getEventsFromStorage();
-            const originalIndex = allEvents.findIndex(e => 
-                e.title === event.title && 
-                e.start === event.start && 
-                e.end === event.end
-            );
-            
-            // On next submit, replace event instead of adding
-            form.onsubmit = async function (e) {
-                e.preventDefault();
-                const formData = new FormData(form);
-                const newEvent = toEventObj(formData);
-                await editEventInStorage(originalIndex, newEvent);
-                form.reset();
-                form.onsubmit = defaultFormHandler;
-            };
-        };
-        li.appendChild(editBtn);
-        // Remove button
-        const removeBtn = document.createElement("button");
-        removeBtn.textContent = "Remove";
-        removeBtn.className = "event-action";
-        removeBtn.onclick = async () => {
-            // Use the sorted events array to get the correct event
-            const event = sortedEvents[idx];
-            // Find the original index in the unsorted array for storage operations
-            const allEvents = await getEventsFromStorage();
-            const originalIndex = allEvents.findIndex(e => 
-                e.title === event.title && 
-                e.start === event.start && 
-                e.end === event.end
-            );
-            removeEventFromStorage(originalIndex);
-        };
-        li.appendChild(removeBtn);
-    });
-}
-
-// Save default form handler for restoring after edit
-const defaultFormHandler = async function (e) {
-    e.preventDefault();
-    const formData = new FormData(form);
-    const eventObj = toEventObj(formData);
-    await storage.saveEvent(eventObj);
-    renderAllEvents();
+function exitEditMode() {
+    editingId = null;
     form.reset();
-    form.onsubmit = defaultFormHandler;
-};
+    submitBtn.value = "Add event";
+    cancelBtn.style.display = "none";
+}
 
-// Update renderAllEvents to add actions
-async function renderAllEvents() {
-    const eventsArr = await getEventsFromStorage();
-    
-    // Sort events by start date
-    const sortedEvents = eventsArr.sort((a, b) => {
-        const dateA = new Date(a.start);
-        const dateB = new Date(b.start);
-        return dateA - dateB;
-    });
-    
-    const eventsCountdown = new EventsCountdown();
-    sortedEvents.forEach((e) => {
-        eventsCountdown.addEvent(new Event(e.title, e.start, e.end));
-    });
-    const eventsHtml = new EventsHtml(eventsCountdown);
-    eventsHtml.startRendering();
+cancelBtn.addEventListener("click", exitEditMode);
 
-    // Handle timeline chart
-    const timelineContainer = document.getElementById("timeline");
-    if (sortedEvents.length > 0) {
-        // Show timeline and render chart
-        timelineContainer.style.display = "block";
-
-        // Prepare timeline data with validation
-        window.timelineData = sortedEvents
-            .map((e) => {
-                const startDate = new Date(e.start);
-                const endDate = e.end
-                    ? new Date(e.end)
-                    : new Date(startDate.getTime() + 24 * 60 * 60 * 1000); // Add 1 day if no end date
-
-                // Validate dates
-                if (isNaN(startDate.getTime())) {
-                    console.warn("Invalid start date for event:", e.title);
-                    return null;
-                }
-                if (isNaN(endDate.getTime())) {
-                    console.warn("Invalid end date for event:", e.title);
-                    return null;
-                }
-
-                return [e.title, startDate, endDate];
-            })
-            .filter((row) => row !== null); // Remove invalid entries
-
-        // Only draw chart if we have valid data
-        if (
-            window.timelineData.length > 0 &&
-            typeof google !== "undefined" &&
-            google.visualization &&
-            google.visualization.Timeline
-        ) {
-            if (typeof drawChart === "function") {
-                setTimeout(drawChart, 100); // Small delay to ensure DOM is ready
-            }
-        } else {
-            timelineContainer.style.display = "none";
-        }
-    } else {
-        // Hide timeline when no events
-        timelineContainer.style.display = "none";
-        window.timelineData = [];
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const eventObj = toEventObj(new FormData(form));
+    const error = validateEvent(eventObj);
+    if (error) {
+        alert(error);
+        return;
     }
 
-    addEventActions(sortedEvents);
+    if (editingId) {
+        const id = editingId;
+        editingId = null;
+        await storage.updateEvent(id, eventObj);
+    } else {
+        await storage.saveEvent(eventObj);
+    }
+    exitEditMode();
+    await loadEvents();
+});
+
+// Fetch from storage once, then render. Tick re-renders from cache.
+async function loadEvents() {
+    if (loadInFlight) {
+        loadPending = true;
+        return;
+    }
+    loadInFlight = true;
+    try {
+        const events = await storage.getEvents();
+        events.sort((a, b) => new Date(a.start) - new Date(b.start));
+        cachedEvents = events;
+    } finally {
+        loadInFlight = false;
+    }
+    render();
     updateStorageInfo();
+    if (loadPending) {
+        loadPending = false;
+        loadEvents();
+    }
 }
 
-// Storage info display
+function render() {
+    const eventsCountdown = new EventsCountdown();
+    cachedEvents.forEach((e) => {
+        eventsCountdown.addEvent(new Event(e.title, e.start, e.end, e.id));
+    });
+    new EventsHtml(eventsCountdown).renderEvents();
+    renderTimeline();
+    addEventActions();
+}
+
+function renderTimeline() {
+    const container = document.getElementById("timeline");
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (cachedEvents.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "timeline-empty";
+        empty.textContent = "Nothing to plot.";
+        container.appendChild(empty);
+        return;
+    }
+
+    const items = cachedEvents
+        .map((e) => {
+            const start = new Date(e.start);
+            const end = e.end
+                ? new Date(e.end)
+                : new Date(start.getTime() + 24 * 60 * 60 * 1000);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+            return { title: e.title, start, end };
+        })
+        .filter(Boolean);
+
+    if (items.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "timeline-empty";
+        empty.textContent = "Nothing to plot.";
+        container.appendChild(empty);
+        return;
+    }
+
+    const now = Date.now();
+    const minT = Math.min(now, ...items.map((i) => i.start.getTime()));
+    const maxT = Math.max(now, ...items.map((i) => i.end.getTime()));
+    const span = Math.max(maxT - minT, 1);
+
+    const fmt = (t) => {
+        const d = new Date(t);
+        const m = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()];
+        return `${m} ${d.getFullYear()}`;
+    };
+
+    const axis = document.createElement("div");
+    axis.className = "timeline-axis";
+    const start = document.createElement("span");
+    start.textContent = fmt(minT);
+    const end = document.createElement("span");
+    end.textContent = fmt(maxT);
+    axis.appendChild(start);
+    axis.appendChild(end);
+
+    const nowMarker = document.createElement("span");
+    nowMarker.className = "timeline-now";
+    const nowPct = ((now - minT) / span) * 100;
+    nowMarker.style.left = `${Math.max(0, Math.min(100, nowPct))}%`;
+    axis.appendChild(nowMarker);
+    container.appendChild(axis);
+
+    const tracks = document.createElement("ul");
+    tracks.className = "timeline-tracks";
+
+    items.forEach((it) => {
+        const isPast = it.end.getTime() < now;
+        const li = document.createElement("li");
+        li.className = "timeline-track";
+        if (isPast) li.classList.add("is-past");
+
+        const label = document.createElement("span");
+        label.className = "timeline-label";
+        label.textContent = it.title;
+        li.appendChild(label);
+
+        const wrap = document.createElement("div");
+        wrap.className = "timeline-bar-wrap";
+
+        const leftPct = ((it.start.getTime() - minT) / span) * 100;
+        const widthPct = Math.max(((it.end.getTime() - it.start.getTime()) / span) * 100, 0.6);
+        const bar = document.createElement("span");
+        bar.className = "timeline-bar";
+        bar.style.left = `${leftPct}%`;
+        bar.style.width = `${widthPct}%`;
+        wrap.appendChild(bar);
+
+        const marker = document.createElement("span");
+        marker.className = "timeline-marker";
+        marker.style.left = `${nowPct}%`;
+        wrap.appendChild(marker);
+
+        li.appendChild(wrap);
+        tracks.appendChild(li);
+    });
+
+    container.appendChild(tracks);
+}
+
+function addEventActions() {
+    const eventList = document.getElementById("events");
+    if (!eventList) return;
+    Array.from(eventList.children).forEach((li, idx) => {
+        const event = cachedEvents[idx];
+        if (!event || !event.id) return;
+        const slot = li.querySelector(".event-actions");
+        if (!slot) return;
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.textContent = "Edit";
+        editBtn.className = "event-action";
+        editBtn.onclick = () => enterEditMode(event);
+        slot.appendChild(editBtn);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.textContent = "Discard";
+        removeBtn.className = "event-action";
+        removeBtn.onclick = async () => {
+            if (editingId === event.id) exitEditMode();
+            await storage.removeEvent(event.id);
+            await loadEvents();
+        };
+        slot.appendChild(removeBtn);
+    });
+}
+
 function updateStorageInfo() {
     const storageInfo = storage.getStorageInfo();
+    if (storageInfo.type === lastStorageType) return; // no-op when unchanged
+    lastStorageType = storageInfo.type;
+
     let infoEl = document.getElementById("storage-info");
     if (!infoEl) {
         infoEl = document.createElement("div");
@@ -198,62 +306,56 @@ function updateStorageInfo() {
             .querySelector(".container")
             .insertBefore(infoEl, document.getElementById("event-form"));
     }
+    infoEl.innerHTML = "";
 
+    const status = document.createElement("div");
     if (storageInfo.type === "cloud") {
-        infoEl.innerHTML = `
-            <div class="cloud-status">
-                ☁️ <strong>Cloud Sync Active</strong> - ${storageInfo.description}
-                <button id="sign-out-btn" class="small-btn">Sign Out</button>
-            </div>
-        `;
-        document.getElementById("sign-out-btn").onclick = async () => {
+        status.className = "cloud-status";
+        const label = document.createElement("strong");
+        label.textContent = "☁️ Cloud Sync Active";
+        status.appendChild(label);
+        status.appendChild(document.createTextNode(` - ${storageInfo.description} `));
+        const btn = document.createElement("button");
+        btn.id = "sign-out-btn";
+        btn.className = "small-btn";
+        btn.textContent = "Sign Out";
+        btn.onclick = async () => {
             await authService.signOut();
-            renderAllEvents();
         };
+        status.appendChild(btn);
     } else {
-        infoEl.innerHTML = `
-            <div class="local-status">
-                💾 <strong>Local Storage</strong> - ${storageInfo.description}
-                <button id="sign-in-btn" class="small-btn">Sign in for Cloud Sync</button>
-            </div>
-        `;
-        document.getElementById("sign-in-btn").onclick = async () => {
+        status.className = "local-status";
+        const label = document.createElement("strong");
+        label.textContent = "💾 Local Storage";
+        status.appendChild(label);
+        status.appendChild(document.createTextNode(` - ${storageInfo.description} `));
+        const btn = document.createElement("button");
+        btn.id = "sign-in-btn";
+        btn.className = "small-btn";
+        btn.textContent = "Sign in for Cloud Sync";
+        btn.onclick = async () => {
             try {
                 await authService.signInWithGoogle();
                 await storage.migrateCookiesToCloud();
-                renderAllEvents();
+                await loadEvents();
             } catch (error) {
                 console.error("Sign in failed:", error);
                 alert("Sign in failed. Please try again.");
             }
         };
+        status.appendChild(btn);
     }
+    infoEl.appendChild(status);
 }
 
-// Listen for auth state changes
-authService.onAuthStateChanged((user) => {
-    if (user) {
-        console.log("User signed in:", user.displayName);
-        // Migrate cookie data to cloud
-        storage.migrateCookiesToCloud().then(() => {
-            renderAllEvents();
-        });
-    } else {
-        console.log("User signed out");
-        renderAllEvents();
-    }
+// Auth state changes only re-load events; migration is explicit (sign-in click).
+authService.onAuthStateChanged(() => {
+    lastStorageType = null; // force the info bar to re-render with new state
+    loadEvents();
 });
 
-// Form handler
-const form = document.getElementById("event-form");
-if (form) {
-    form.onsubmit = defaultFormHandler;
-}
+loadEvents();
 
-// Initial render
-renderAllEvents();
-
-// Set up automatic refresh every second
-setInterval(() => {
-    renderAllEvents();
-}, 1000);
+// Tick re-renders from cache so countdowns advance every second
+// without hitting Firestore.
+setInterval(render, 1000);

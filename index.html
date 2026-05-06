@@ -4,89 +4,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <title>Chronicle — A ledger of days</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        // Set theme before paint to avoid a flash of light mode.
+        (function () {
+            try {
+                var t = localStorage.getItem("chronicle-theme");
+                var dark = t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                document.documentElement.dataset.theme = dark ? "dark" : "light";
+                document.documentElement.dataset.userTheme = t || "auto";
+            } catch (e) { /* localStorage unavailable */ }
+        })();
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <link rel="stylesheet" href="style.css">
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script type="text/javascript">
-        google.charts.load("current", { packages: ["timeline"] });
-        google.charts.setOnLoadCallback(drawChart);
-
-        function drawChart() {
-            // Check if we have valid data before drawing
-            if (!window.timelineData || window.timelineData.length === 0) {
-                return;
-            }
-
-            const container = document.getElementById('timeline');
-            if (!container || container.style.display === 'none') {
-                return;
-            }
-
-            try {
-                const chart = new google.visualization.Timeline(container);
-                const dataTable = new google.visualization.DataTable();
-
-                dataTable.addColumn({ type: 'string', id: 'Event' });
-                dataTable.addColumn({ type: 'date', id: 'Start' });
-                dataTable.addColumn({ type: 'date', id: 'End' });
-
-                // Validate and add rows
-                const validData = window.timelineData.filter(row => {
-                    return row && row.length === 3 &&
-                        typeof row[0] === 'string' &&
-                        row[1] instanceof Date && !isNaN(row[1].getTime()) &&
-                        row[2] instanceof Date && !isNaN(row[2].getTime());
-                });
-
-                if (validData.length === 0) {
-                    return;
-                }
-
-                dataTable.addRows(validData);
-
-                const options = {
-                    timeline: { showRowLabels: true },
-                    avoidOverlappingGridLines: false,
-                };
-
-                chart.draw(dataTable, options);
-            } catch (error) {
-                console.warn('Timeline chart error:', error);
-                // Hide timeline if there's an error
-                container.style.display = 'none';
-            }
-        }
-    </script>
     <script type='module' src="./js/main.js" defer></script>
 </head>
 
 <body>
-
-
     <div class="container">
+        <header class="masthead">
+            <div class="masthead-text">
+                <h1 class="wordmark">Chronicle<span class="wordmark-mark">.</span></h1>
+                <p class="kicker">An editorial ledger · Past &amp; to come</p>
+            </div>
+            <div class="masthead-controls">
+                <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">
+                    <span class="theme-glyph" aria-hidden="true"></span>
+                    <span class="theme-label">Auto</span>
+                </button>
+                <div id="storage-info" class="storage-info"></div>
+            </div>
+        </header>
 
-        <form id="event-form">
-            <label for="event-name">Event Name</label>
-            <input type="text" id="event-name" name="event-name" required>
-            <label for="event-start-time">Event Start Time</label>
-            <input type="datetime-local" id="event-start-time" name="event-start-time" required>
-            <label for="event-end-time">Event End Time</label>
-            <input type="datetime-local" id="event-end-time" name="event-end-time">
-            <input type="submit" value="Add event"></input>
-        </form>
+        <section class="compose" aria-labelledby="compose-heading">
+            <h2 class="section-label" id="compose-heading"><span>Inscribe</span><span class="rule"></span><span class="section-num">01</span></h2>
+            <form id="event-form" autocomplete="off">
+                <div class="field field-title">
+                    <label for="event-name">The matter</label>
+                    <input type="text" id="event-name" name="event-name" required placeholder="What's coming, or what was?">
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="event-start-time">Begins</label>
+                        <input type="datetime-local" id="event-start-time" name="event-start-time" required>
+                    </div>
+                    <div class="field">
+                        <label for="event-end-time">Ends <span class="optional">optional</span></label>
+                        <input type="datetime-local" id="event-end-time" name="event-end-time">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <input type="submit" id="event-submit" value="Add event">
+                    <button type="button" id="cancel-edit-btn" class="ghost-btn" style="display:none">Discard</button>
+                </div>
+            </form>
+        </section>
 
-        <ul id="events">
-            <!-- Events will be populated dynamically -->
-        </ul>
+        <section class="events-section" aria-labelledby="events-heading">
+            <h2 class="section-label" id="events-heading"><span>The chronicle</span><span class="rule"></span><span class="section-num">02</span></h2>
+            <ul id="events"></ul>
+        </section>
 
-        <div id="timeline" style="min-height: 500px"></div>
+        <section class="timeline-section" aria-labelledby="timeline-heading">
+            <h2 class="section-label" id="timeline-heading"><span>Timeline</span><span class="rule"></span><span class="section-num">03</span></h2>
+            <div id="timeline"></div>
+        </section>
+
+        <footer class="colophon">
+            <p>Set in <em>Instrument Serif</em> &amp; JetBrains Mono. <span class="dot">·</span> Composed by hand.</p>
+        </footer>
     </div>
-
-
-
-
 </body>
 
 </html>
