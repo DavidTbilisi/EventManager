@@ -41,5 +41,13 @@ export function validateEvent(ev) {
     if (ev.end && new Date(ev.end) < new Date(ev.start)) {
         return "End time must be on or after the start time.";
     }
+    if (ev.until) {
+        // `until` is a date-only string; compare against start's date portion.
+        const untilEnd = new Date(`${ev.until}T23:59:59`);
+        if (isNaN(untilEnd.getTime())) return "Until date is invalid.";
+        if (untilEnd < new Date(ev.start)) {
+            return "Until date must be on or after the start date.";
+        }
+    }
     return null;
 }

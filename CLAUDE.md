@@ -40,7 +40,9 @@ index.html ──► js/main.js ──► AuthService ──► firebase-config.
 
 Key cross-file behaviors that are not obvious from reading any single file:
 
-- **Two parallel data shapes.** Storage (cookies / Firestore) uses plain objects with `{ title, start, end }` where `start`/`end` are ISO datetime strings from `<input type="datetime-local">`. The countdown layer (`Event`, `EventsCountdown`, `EventsHtml`) uses `{ name, date, endDate }` with moment objects. `main.js#renderAllEvents` is the translation point — `new Event(e.title, e.start, e.end)`.
+- **Two parallel data shapes.** Storage (cookies / Firestore) uses plain objects with `{ title, start, end, recurrence?, until? }` where `start`/`end` are ISO datetime strings from `<input type="datetime-local">`, `recurrence` is one of `"none" | "daily" | "weekly" | "monthly" | "yearly"`, and `until` is an optional `YYYY-MM-DD` date-only string. The countdown layer (`Event`, `EventsCountdown`, `EventsHtml`) uses `{ name, date, endDate, recurrence }` with moment objects. `main.js#render` is the translation point — `new Event(e.title, e.start, e.end, e.id, e.recurrence)`.
+
+- **Recurring events are expanded at render time, not in storage.** `js/recurrence.js#computeOccurrence` advances a recurring event's start/end to the next occurrence > now (bounded by `until`). `main.js` runs this every tick to build `displayEvents`, so cards, sort order, and stats all use the displayed occurrence — but edit-mode reads back from `cachedEvents` so the user sees and edits the original seed date. ICS export emits `RRULE:FREQ=...;UNTIL=...`; CSV adds `recurrence,until` columns.
 
 - **Hybrid storage with silent fallback.** `HybridStorage` routes every read/write through `authService.isAuthenticated()`. Authenticated users hit Firestore; anonymous users use a single `events=` cookie containing the JSON array. On any Firebase failure, calls fall back to cookies and log a warning — they do not throw. When extending storage, preserve both branches.
 
@@ -57,6 +59,10 @@ Key cross-file behaviors that are not obvious from reading any single file:
 ## Firebase
 
 Config lives in `js/firebase-config.js` and is committed (this is normal for client-side Firebase — security is enforced by Firestore rules, not by hiding the API key). The Firestore collection is `events`, scoped per user via a `userId` field equal to `auth.currentUser.uid`. There is no Firebase tooling in the repo (no `firebase.json`, no Functions, no emulator config) — security rules are managed in the Firebase Console for project `eventmanagerdavidtbilisi`.
+
+## Import / export / Google Calendar
+
+`js/dataIO.js` handles iCalendar (.ics) and CSV serialize/parse plus a `dedupeAgainst` helper that matches on title + start + end. `js/calendar.js` does a one-way pull from the user's primary Google Calendar by triggering a fresh `signInWithPopup` with the `calendar.readonly` scope and calling the Calendar v3 REST API directly with the returned access token. The "Pull from Google Calendar" button only works after the Calendar API is enabled in the `eventmanagerdavidtbilisi` GCP project AND `calendar.readonly` is added to the OAuth consent screen scopes — otherwise the popup throws an OAuth error. All imports route through `dedupeAgainst` and `storage.saveEvent`, so Firestore rewrite semantics still apply.
 
 ## Dev tools
 

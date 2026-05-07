@@ -41,6 +41,7 @@ export {
     auth,
     db,
     provider,
+    GoogleAuthProvider,
     signInWithPopup,
     signOut,
     onAuthStateChanged,

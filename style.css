@@ -525,6 +525,26 @@ body::after {
     color: var(--past);
 }
 
+.event-recurrence {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--rule);
+    color: var(--ink-mute);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+}
+
+.event-recurrence-glyph {
+    font-size: 0.85rem;
+    line-height: 1;
+    letter-spacing: 0;
+}
+
 .event-title {
     font-family: var(--serif);
     font-weight: 400;
@@ -808,6 +828,68 @@ body::after {
     font-size: 0.7rem;
     color: var(--ink-mute);
     flex: 0 0 auto;
+}
+
+/* ─── Archive (export / import / sync) ─────────────────── */
+
+.archive-section {
+    margin-bottom: 1rem;
+}
+
+.archive-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.7rem;
+    align-items: center;
+}
+
+.archive-btn {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 0.5rem 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.archive-btn:hover:not(:disabled) {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.archive-btn:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.archive-btn:disabled {
+    opacity: 0.5;
+    cursor: progress;
+}
+
+.archive-btn-ext {
+    color: var(--accent);
+    letter-spacing: 0.06em;
+}
+
+.archive-status {
+    margin: 0.7rem 0 0;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+}
+
+.archive-status.is-ok {
+    color: var(--ink);
+}
+
+.archive-status.is-warn {
+    color: var(--accent);
 }
 
 /* ─── Colophon ─────────────────────────────────────────── */

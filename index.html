@@ -61,6 +61,20 @@
                     <label for="event-end-time">Ends <span class="optional">optional</span></label>
                     <input type="datetime-local" id="event-end-time" name="event-end-time">
                 </div>
+                <div class="field">
+                    <label for="event-recurrence">Repeats</label>
+                    <select id="event-recurrence" name="event-recurrence">
+                        <option value="none">Once</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="field" id="event-until-field" hidden>
+                    <label for="event-until">Until <span class="optional">optional</span></label>
+                    <input type="date" id="event-until" name="event-until">
+                </div>
                 <div class="form-actions">
                     <input type="submit" id="event-submit" value="Add event">
                     <button type="button" id="cancel-edit-btn" class="ghost-btn" style="display:none">Discard</button>
@@ -71,6 +85,18 @@
         <section class="events-section" aria-labelledby="events-heading">
             <h2 class="section-label" id="events-heading"><span>The chronicle</span><span class="rule"></span><span class="section-num">03</span></h2>
             <ul id="events"></ul>
+        </section>
+
+        <section class="archive-section" aria-labelledby="archive-heading">
+            <h2 class="section-label" id="archive-heading"><span>Archive</span><span class="rule"></span><span class="section-num">04</span></h2>
+            <div class="archive-bar">
+                <button type="button" id="export-ics-btn" class="archive-btn">Export <span class="archive-btn-ext">.ics</span></button>
+                <button type="button" id="export-csv-btn" class="archive-btn">Export <span class="archive-btn-ext">.csv</span></button>
+                <button type="button" id="import-btn" class="archive-btn">Import file…</button>
+                <button type="button" id="gcal-pull-btn" class="archive-btn">Pull from Google Calendar</button>
+                <input type="file" id="import-file" accept=".ics,.csv,text/calendar,text/csv" hidden>
+            </div>
+            <p id="archive-status" class="archive-status" hidden></p>
         </section>
 
         <footer class="colophon">

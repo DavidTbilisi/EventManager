@@ -1,9 +1,10 @@
 import { formatDuration } from "./helpers.js";
 
 export class Event {
-    constructor(name, date, endDate = null, id = null) {
+    constructor(name, date, endDate = null, id = null, recurrence = null) {
         this.id = id;
         this.name = name;
+        this.recurrence = recurrence && recurrence !== "none" ? recurrence : null;
         this.date = moment(date); // Store as moment object
         this.hasExplicitEnd = !!endDate;
         // If endDate is not provided, set it to the next day after the start date

@@ -61,6 +61,21 @@ export class EventsHtml {
         status.className = `event-status ${isPast ? "status-past" : "status-future"}`;
         status.textContent = isPast ? "Past" : "Upcoming";
         kicker.appendChild(status);
+        if (event.recurrence) {
+            const recur = document.createElement("span");
+            recur.className = "event-recurrence";
+            recur.title = `Repeats ${event.recurrence}`;
+            const glyph = document.createElement("span");
+            glyph.className = "event-recurrence-glyph";
+            glyph.setAttribute("aria-hidden", "true");
+            glyph.textContent = "↻";
+            const label = document.createElement("span");
+            label.className = "event-recurrence-label";
+            label.textContent = event.recurrence;
+            recur.appendChild(glyph);
+            recur.appendChild(label);
+            kicker.appendChild(recur);
+        }
         article.appendChild(kicker);
 
         // Title

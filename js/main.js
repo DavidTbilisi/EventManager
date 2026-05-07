@@ -11,6 +11,15 @@ import {
     nextTheme,
     effectiveTheme,
 } from "./theme.js";
+import {
+    exportIcs,
+    exportCsv,
+    parseIcs,
+    parseCsv,
+    dedupeAgainst,
+} from "./dataIO.js";
+import { fetchGoogleCalendarEvents } from "./calendar.js";
+import { computeOccurrence, isRecurring, normalizeRecurrence } from "./recurrence.js";
 
 const authService = new AuthService();
 const storage = new HybridStorage(authService);
@@ -53,12 +62,28 @@ let lastStorageType = null;
 const form = document.getElementById("event-form");
 const submitBtn = document.getElementById("event-submit");
 const cancelBtn = document.getElementById("cancel-edit-btn");
+const recurrenceSelect = document.getElementById("event-recurrence");
+const untilField = document.getElementById("event-until-field");
+const untilInput = document.getElementById("event-until");
+
+function syncUntilVisibility() {
+    const recurring = recurrenceSelect.value !== "none";
+    untilField.hidden = !recurring;
+    if (!recurring) untilInput.value = "";
+}
+
+recurrenceSelect.addEventListener("change", syncUntilVisibility);
+syncUntilVisibility();
 
 function toEventObj(formData) {
+    const recurrence = normalizeRecurrence(formData.get("event-recurrence"));
+    const until = recurrence !== "none" ? formData.get("event-until") || undefined : undefined;
     return {
         title: formData.get("event-name"),
         start: formData.get("event-start-time"),
         end: formData.get("event-end-time") || undefined,
+        recurrence,
+        until,
     };
 }
 
@@ -67,6 +92,9 @@ function enterEditMode(ev) {
     form["event-name"].value = ev.title;
     form["event-start-time"].value = toDateTimeLocalValue(ev.start);
     form["event-end-time"].value = ev.end ? toDateTimeLocalValue(ev.end) : "";
+    recurrenceSelect.value = normalizeRecurrence(ev.recurrence);
+    untilInput.value = ev.until || "";
+    syncUntilVisibility();
     submitBtn.value = "Save changes";
     cancelBtn.style.display = "inline";
 }
@@ -74,6 +102,7 @@ function enterEditMode(ev) {
 function exitEditMode() {
     editingId = null;
     form.reset();
+    syncUntilVisibility();
     submitBtn.value = "Add event";
     cancelBtn.style.display = "none";
 }
@@ -108,9 +137,7 @@ async function loadEvents() {
     }
     loadInFlight = true;
     try {
-        const events = await storage.getEvents();
-        events.sort((a, b) => new Date(a.start) - new Date(b.start));
-        cachedEvents = events;
+        cachedEvents = await storage.getEvents();
     } finally {
         loadInFlight = false;
     }
@@ -122,13 +149,27 @@ async function loadEvents() {
     }
 }
 
+// Per-tick view: resolve recurring events to their next occurrence so the
+// chronicle, stats, and countdowns all use the same displayed dates.
+let displayEvents = [];
+function buildDisplayEvents() {
+    const now = new Date();
+    displayEvents = cachedEvents
+        .map((e) => {
+            const occ = computeOccurrence(e, now);
+            return { ...e, start: occ.start, end: occ.end, _origStart: e.start };
+        })
+        .sort((a, b) => new Date(a.start) - new Date(b.start));
+}
+
 // Tick render — rebuilds event cards and the stats panel from cache so
 // countdowns and the NEXT/LAST tiles advance every second without hitting
 // storage.
 function render() {
+    buildDisplayEvents();
     const eventsCountdown = new EventsCountdown();
-    cachedEvents.forEach((e) => {
-        eventsCountdown.addEvent(new Event(e.title, e.start, e.end, e.id));
+    displayEvents.forEach((e) => {
+        eventsCountdown.addEvent(new Event(e.title, e.start, e.end, e.id, e.recurrence));
     });
     new EventsHtml(eventsCountdown).renderEvents();
     addEventActions();
@@ -140,7 +181,7 @@ function renderStatistics() {
     if (!container) return;
     container.innerHTML = "";
 
-    if (cachedEvents.length === 0) {
+    if (displayEvents.length === 0) {
         const empty = document.createElement("p");
         empty.className = "stats-empty";
         empty.textContent = "Nothing to count.";
@@ -149,7 +190,7 @@ function renderStatistics() {
     }
 
     const now = Date.now();
-    const items = cachedEvents
+    const items = displayEvents
         .map((e) => {
             const start = new Date(e.start).getTime();
             const end = e.end ? new Date(e.end).getTime() : start;
@@ -252,8 +293,10 @@ function addEventActions() {
     const eventList = document.getElementById("events");
     if (!eventList) return;
     Array.from(eventList.children).forEach((li, idx) => {
-        const event = cachedEvents[idx];
-        if (!event || !event.id) return;
+        const display = displayEvents[idx];
+        if (!display || !display.id) return;
+        // Edit modal needs the original start/end, not the computed occurrence.
+        const event = cachedEvents.find((e) => e.id === display.id) || display;
         const slot = li.querySelector(".event-actions");
         if (!slot) return;
 
@@ -334,6 +377,128 @@ function updateStorageInfo() {
         status.appendChild(btn);
     }
     infoEl.appendChild(status);
+}
+
+// ─── Archive (export / import / Google Calendar) ───────
+const exportIcsBtn = document.getElementById("export-ics-btn");
+const exportCsvBtn = document.getElementById("export-csv-btn");
+const importBtn = document.getElementById("import-btn");
+const importInput = document.getElementById("import-file");
+const gcalBtn = document.getElementById("gcal-pull-btn");
+const archiveStatus = document.getElementById("archive-status");
+
+function setArchiveStatus(message, tone) {
+    if (!archiveStatus) return;
+    if (!message) {
+        archiveStatus.hidden = true;
+        archiveStatus.textContent = "";
+        archiveStatus.className = "archive-status";
+        return;
+    }
+    archiveStatus.hidden = false;
+    archiveStatus.textContent = message;
+    archiveStatus.className = `archive-status${tone ? ` is-${tone}` : ""}`;
+}
+
+function downloadFile(filename, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function exportFilename(ext) {
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+    return `chronicle-${stamp}.${ext}`;
+}
+
+if (exportIcsBtn) {
+    exportIcsBtn.addEventListener("click", () => {
+        if (cachedEvents.length === 0) {
+            setArchiveStatus("Nothing to export.", "warn");
+            return;
+        }
+        downloadFile(exportFilename("ics"), exportIcs(cachedEvents), "text/calendar");
+        setArchiveStatus(`Exported ${cachedEvents.length} event${cachedEvents.length === 1 ? "" : "s"} as .ics.`, "ok");
+    });
+}
+
+if (exportCsvBtn) {
+    exportCsvBtn.addEventListener("click", () => {
+        if (cachedEvents.length === 0) {
+            setArchiveStatus("Nothing to export.", "warn");
+            return;
+        }
+        downloadFile(exportFilename("csv"), exportCsv(cachedEvents), "text/csv");
+        setArchiveStatus(`Exported ${cachedEvents.length} event${cachedEvents.length === 1 ? "" : "s"} as .csv.`, "ok");
+    });
+}
+
+if (importBtn && importInput) {
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", async () => {
+        const file = importInput.files && importInput.files[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const ext = (file.name.split(".").pop() || "").toLowerCase();
+            const parsed = ext === "csv" ? parseCsv(text) : parseIcs(text);
+            await mergeImported(parsed, file.name);
+        } catch (err) {
+            console.error("Import failed:", err);
+            setArchiveStatus(`Import failed: ${err.message}`, "warn");
+        } finally {
+            importInput.value = "";
+        }
+    });
+}
+
+if (gcalBtn) {
+    gcalBtn.addEventListener("click", async () => {
+        gcalBtn.disabled = true;
+        setArchiveStatus("Opening Google sign-in…");
+        try {
+            const now = Date.now();
+            const sixMonthsBack = new Date(now - 1000 * 60 * 60 * 24 * 180);
+            const oneYearAhead = new Date(now + 1000 * 60 * 60 * 24 * 365);
+            const events = await fetchGoogleCalendarEvents({
+                timeMin: sixMonthsBack,
+                timeMax: oneYearAhead,
+            });
+            await mergeImported(events, "Google Calendar");
+        } catch (err) {
+            console.error("Google Calendar pull failed:", err);
+            setArchiveStatus(`Google Calendar: ${err.message}`, "warn");
+        } finally {
+            gcalBtn.disabled = false;
+        }
+    });
+}
+
+async function mergeImported(parsed, sourceLabel) {
+    if (!parsed.length) {
+        setArchiveStatus(`${sourceLabel}: no events found.`, "warn");
+        return;
+    }
+    const { added, skipped } = dedupeAgainst(cachedEvents, parsed);
+    if (added.length === 0) {
+        setArchiveStatus(`${sourceLabel}: ${skipped} duplicate${skipped === 1 ? "" : "s"}, nothing new.`, "warn");
+        return;
+    }
+    setArchiveStatus(`${sourceLabel}: importing ${added.length}…`);
+    for (const ev of added) {
+        await storage.saveEvent(ev);
+    }
+    await loadEvents();
+    const parts = [`Imported ${added.length} from ${sourceLabel}`];
+    if (skipped) parts.push(`${skipped} duplicate${skipped === 1 ? "" : "s"} skipped`);
+    setArchiveStatus(`${parts.join(" · ")}.`, "ok");
 }
 
 // Auth state changes only re-load events; migration is explicit (sign-in click).
