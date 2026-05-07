@@ -193,6 +193,7 @@ body::after {
 }
 
 .small-btn {
+    position: relative;
     background: transparent;
     border: 0;
     border-left: 1px solid var(--rule);
@@ -204,10 +205,35 @@ body::after {
     letter-spacing: 0.15em;
     color: var(--ink);
     cursor: pointer;
-    transition: color 0.2s ease;
+    transition: color 0.2s ease, letter-spacing 0.2s ease, border-color 0.2s ease;
+}
+
+.small-btn::after {
+    content: "";
+    position: absolute;
+    left: 0.55rem;
+    right: 0;
+    bottom: -2px;
+    height: 1px;
+    background: currentColor;
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.25s ease;
 }
 
 .small-btn:hover {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    letter-spacing: 0.18em;
+}
+
+.small-btn:hover::after {
+    transform: scaleX(1);
+}
+
+.small-btn:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 3px;
     color: var(--accent);
 }
 
@@ -227,17 +253,42 @@ body::after {
     text-transform: uppercase;
     letter-spacing: 0.18em;
     cursor: pointer;
-    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    box-shadow: 0 1px 0 rgba(20, 17, 13, 0.04);
+    transition:
+        color 0.2s ease,
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.15s ease;
 }
 
 .theme-toggle:hover {
     color: var(--accent);
+    border-color: var(--accent);
+    background: var(--paper);
+    box-shadow: 0 2px 0 rgba(20, 17, 13, 0.06), 0 0 0 4px var(--accent-soft);
+}
+
+.theme-toggle:active {
+    transform: translateY(1px);
+    box-shadow: 0 0 0 0 rgba(20, 17, 13, 0);
+}
+
+.theme-toggle:hover .theme-glyph {
     border-color: var(--accent);
 }
 
 .theme-toggle:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+}
+
+[data-theme="dark"] .theme-toggle {
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .theme-toggle:hover {
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5), 0 0 0 4px var(--accent-soft);
 }
 
 .theme-glyph {
@@ -382,6 +433,7 @@ body::after {
 #event-submit {
     appearance: none;
     -webkit-appearance: none;
+    position: relative;
     font-family: var(--serif);
     font-style: italic;
     font-size: 1rem;
@@ -392,19 +444,59 @@ body::after {
     cursor: pointer;
     border-radius: 0;
     letter-spacing: 0.01em;
-    transition: background 0.2s ease, transform 0.2s ease;
+    box-shadow:
+        0 1px 0 rgba(20, 17, 13, 0.18),
+        inset 0 1px 0 rgba(242, 235, 219, 0.06);
+    transition:
+        background 0.2s ease,
+        transform 0.15s ease,
+        box-shadow 0.2s ease,
+        letter-spacing 0.2s ease;
     white-space: nowrap;
 }
 
 #event-submit:hover {
     background: var(--accent);
+    letter-spacing: 0.04em;
+    box-shadow:
+        0 3px 0 rgba(176, 67, 31, 0.22),
+        inset 0 1px 0 rgba(242, 235, 219, 0.08);
+    transform: translateY(-1px);
 }
 
 #event-submit:active {
     transform: translateY(1px);
+    box-shadow:
+        0 0 0 rgba(20, 17, 13, 0),
+        inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+#event-submit:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+#event-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+[data-theme="dark"] #event-submit {
+    box-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(236, 227, 204, 0.04);
+}
+
+[data-theme="dark"] #event-submit:hover {
+    box-shadow:
+        0 3px 0 rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(236, 227, 204, 0.06);
 }
 
 .ghost-btn {
+    position: relative;
     background: transparent;
     border: 0;
     font-family: var(--mono);
@@ -413,14 +505,45 @@ body::after {
     letter-spacing: 0.2em;
     color: var(--ink-mute);
     cursor: pointer;
-    padding: 0.35rem 0;
+    padding: 0.4rem 0.1rem 0.35rem;
     border-bottom: 1px solid var(--rule);
-    transition: color 0.2s ease, border-color 0.2s ease;
+    transition:
+        color 0.2s ease,
+        border-color 0.2s ease,
+        letter-spacing 0.2s ease,
+        padding 0.2s ease;
+}
+
+.ghost-btn::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.25s ease;
 }
 
 .ghost-btn:hover {
     color: var(--accent);
-    border-bottom-color: var(--accent);
+    border-bottom-color: transparent;
+    letter-spacing: 0.24em;
+}
+
+.ghost-btn:hover::before {
+    transform: scaleX(1);
+}
+
+.ghost-btn:focus-visible {
+    outline: none;
+    color: var(--accent);
+}
+
+.ghost-btn:focus-visible::before {
+    transform: scaleX(1);
 }
 
 /* ─── Events grid ──────────────────────────────────────── */
@@ -679,9 +802,10 @@ body::after {
 }
 
 .event-action {
+    position: relative;
     background: transparent;
     border: 0;
-    padding: 0.2rem 0;
+    padding: 0.25rem 0.1rem 0.2rem;
     font-family: var(--mono);
     font-size: 0.62rem;
     text-transform: uppercase;
@@ -689,17 +813,54 @@ body::after {
     color: var(--ink-mute);
     cursor: pointer;
     border-bottom: 1px solid var(--rule);
-    transition: color 0.2s ease, border-color 0.2s ease;
+    transition:
+        color 0.2s ease,
+        border-color 0.2s ease,
+        letter-spacing 0.2s ease;
+}
+
+.event-action::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--ink);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.25s ease, background 0.2s ease;
 }
 
 .event-action:hover {
     color: var(--ink);
-    border-bottom-color: var(--ink);
+    border-bottom-color: transparent;
+    letter-spacing: 0.22em;
+}
+
+.event-action:hover::after {
+    transform: scaleX(1);
 }
 
 .event-action:last-child:hover {
     color: var(--accent);
-    border-bottom-color: var(--accent);
+}
+
+.event-action:last-child:hover::after {
+    background: var(--accent);
+}
+
+.event-action:focus-visible {
+    outline: none;
+    color: var(--ink);
+}
+
+.event-action:focus-visible::after {
+    transform: scaleX(1);
+}
+
+.event-action:last-child:focus-visible {
+    color: var(--accent);
 }
 
 /* ─── Statistics ───────────────────────────────────────── */
@@ -844,6 +1005,7 @@ body::after {
 }
 
 .archive-btn {
+    position: relative;
     background: transparent;
     border: 1px solid var(--rule);
     color: var(--ink-soft);
@@ -851,29 +1013,68 @@ body::after {
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.18em;
-    padding: 0.5rem 0.85rem;
+    padding: 0.5rem 0.95rem;
     cursor: pointer;
-    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    box-shadow: 0 1px 0 rgba(20, 17, 13, 0.04);
+    transition:
+        border-color 0.18s ease,
+        color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.15s ease;
 }
 
 .archive-btn:hover:not(:disabled) {
     border-color: var(--ink);
     color: var(--ink);
+    background: var(--paper-soft);
+    box-shadow:
+        0 2px 0 rgba(20, 17, 13, 0.08),
+        inset 0 0 0 1px var(--rule-soft);
+    transform: translateY(-1px);
+}
+
+.archive-btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 2px rgba(20, 17, 13, 0.08);
 }
 
 .archive-btn:focus-visible {
     outline: 1px solid var(--accent);
-    outline-offset: 2px;
+    outline-offset: 3px;
+    border-color: var(--accent);
 }
 
 .archive-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: progress;
+    background: repeating-linear-gradient(
+        135deg,
+        transparent 0,
+        transparent 5px,
+        var(--rule-soft) 5px,
+        var(--rule-soft) 6px
+    );
 }
 
 .archive-btn-ext {
     color: var(--accent);
     letter-spacing: 0.06em;
+    transition: color 0.18s ease;
+}
+
+.archive-btn:hover:not(:disabled) .archive-btn-ext {
+    color: var(--accent-deep);
+}
+
+[data-theme="dark"] .archive-btn {
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .archive-btn:hover:not(:disabled) {
+    box-shadow:
+        0 2px 0 rgba(0, 0, 0, 0.5),
+        inset 0 0 0 1px var(--rule-soft);
 }
 
 .archive-status {
