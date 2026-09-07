@@ -17,6 +17,20 @@ python -m http.server 8000
 
 Opening the file directly with `file://` will break ES module imports and the Firebase auth popup, so always use a server.
 
+## Deploying
+
+GitHub Pages serves this repo from `master` root at https://davidtbilisi.github.io/EventManager/ (classic Pages, no workflow file) — pushing to `master` *is* the deploy. There is nothing to build.
+
+Pages sends `cache-control: max-age=600` on every asset and caches each ES module under its own URL, so `index.html` carries an **import map** that appends `?v=N` to every module `main.js` reaches, plus the same query on `main.js` and `style.css`. Without it a deploy can pair a fresh `main.js` with a 10-minute-stale `helpers.js` and break the import graph outright.
+
+**Bump the version on every deploy that changes a JS or CSS file:**
+
+```powershell
+sed -i 's/?v=1/?v=2/g' index.html seed.html
+```
+
+`tests/assetVersioning.test.js` fails if a module in the graph is missing from the map, if the map lists a module that is no longer imported, or if the versions drift apart — so adding a new `js/*.js` module means adding its import-map entry too.
+
 ## Tests
 
 ```powershell

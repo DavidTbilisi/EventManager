@@ -21,8 +21,38 @@
         })();
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-    <script type='module' src="./js/main.js" defer></script>
+    <link rel="stylesheet" href="style.css?v=1">
+    <!--
+      Cache-busting for a build-less ES module app. GitHub Pages serves every
+      asset with `cache-control: max-age=600` and caches each module separately,
+      so without this a deploy can pair a fresh main.js with a stale helpers.js
+      and break the import graph outright. The map covers every module main.js
+      reaches; main.js and style.css carry the version in their own URLs.
+
+      Bump on every deploy that changes a JS or CSS file:
+          sed -i 's/?v=1/?v=2/g' index.html seed.html
+
+      tests/assetVersioning.test.js fails if a module is unlisted or out of step.
+    -->
+    <script type="importmap">
+    {
+        "imports": {
+            "./js/AuthService.js": "./js/AuthService.js?v=1",
+            "./js/calendar.js": "./js/calendar.js?v=1",
+            "./js/dataIO.js": "./js/dataIO.js?v=1",
+            "./js/EventFocus.js": "./js/EventFocus.js?v=1",
+            "./js/Events.js": "./js/Events.js?v=1",
+            "./js/EventsCountdown.js": "./js/EventsCountdown.js?v=1",
+            "./js/EventsHtml.js": "./js/EventsHtml.js?v=1",
+            "./js/firebase-config.js": "./js/firebase-config.js?v=1",
+            "./js/helpers.js": "./js/helpers.js?v=1",
+            "./js/HybridStorage.js": "./js/HybridStorage.js?v=1",
+            "./js/recurrence.js": "./js/recurrence.js?v=1",
+            "./js/theme.js": "./js/theme.js?v=1"
+        }
+    }
+    </script>
+    <script type='module' src="./js/main.js?v=1" defer></script>
 </head>
 
 <body>
