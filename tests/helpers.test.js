@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { pad, toDateTimeLocalValue, validateEvent, formatDuration } from "../js/helpers.js";
+import { pad, cssEscape, toDateTimeLocalValue, validateEvent, formatDuration } from "../js/helpers.js";
 
 describe("pad", () => {
     it("zero-pads single digits to two characters", () => {
@@ -132,5 +132,23 @@ describe("formatDuration", () => {
     it("days + hours", () => {
         expect(formatDuration(1 * day + 6 * hr)).toBe("1 day 6 hours");
         expect(formatDuration(2 * day + 1 * hr)).toBe("2 days 1 hour");
+    });
+});
+
+describe("cssEscape", () => {
+    afterEach(() => {
+        delete globalThis.CSS;
+    });
+
+    it("delegates to CSS.escape when the browser provides it", () => {
+        globalThis.CSS = { escape: vi.fn((s) => `esc(${s})`) };
+        expect(cssEscape('a"b')).toBe('esc(a"b)');
+        expect(globalThis.CSS.escape).toHaveBeenCalledWith('a"b');
+    });
+
+    it("falls back to the plain string where CSS.escape is missing", () => {
+        // jsdom exposes no CSS global; the guard keeps module code usable there.
+        expect(cssEscape("plain-id")).toBe("plain-id");
+        expect(cssEscape(42)).toBe("42");
     });
 });

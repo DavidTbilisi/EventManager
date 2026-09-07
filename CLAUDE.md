@@ -50,6 +50,8 @@ Key cross-file behaviors that are not obvious from reading any single file:
 
 - **Index-by-content matching for edit/remove buttons.** `addEventActions` in `main.js` finds the "original" index by matching `title + start + end` against the unsorted storage array. Two events with identical fields are indistinguishable to the UI — keep this in mind before adding deduplication or relying on the index.
 
+- **Full-screen view is a separate, long-lived overlay.** `js/EventFocus.js` builds one `#event-focus` dialog on first open and appends it to `<body>`; `main.js#render` calls `eventFocus.sync(...)` at the end of every tick so the overlay's countdown advances in step with the cards. It is opened by event id (card click, or the per-card "Open" action) and closes itself when that id vanishes from storage. The screen button asks for native `requestFullscreen` on top of that and hides itself if the browser refuses (permissions policy in embedded/automated tabs). Because the card list is rebuilt each tick, `rememberCardFocus`/`restoreCardFocus` in `main.js` re-focus the equivalent button after the rebuild — without them keyboard focus falls to `<body>` once a second.
+
 - **Full re-render every second.** `main.js` calls `setInterval(renderAllEvents, 1000)`, which re-fetches from storage and re-builds the DOM. In authenticated mode this is a Firestore read per second per open tab. Don't add expensive work inside `renderAllEvents` without addressing this.
 
 - **moment is a global.** `Event.js` uses `moment(...)` without importing it; it's loaded via the `<script>` tag in `index.html`. Don't try to `import moment` in module files.

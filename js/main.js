@@ -1,9 +1,10 @@
 import { EventsCountdown } from "./EventsCountdown.js";
 import { Event } from "./Events.js";
 import { EventsHtml } from "./EventsHtml.js";
+import { EventFocus } from "./EventFocus.js";
 import AuthService from "./AuthService.js";
 import HybridStorage from "./HybridStorage.js";
-import { toDateTimeLocalValue, validateEvent } from "./helpers.js";
+import { cssEscape, toDateTimeLocalValue, validateEvent } from "./helpers.js";
 import {
     THEME_LABELS,
     getUserTheme,
@@ -109,6 +110,24 @@ function exitEditMode() {
 
 cancelBtn.addEventListener("click", exitEditMode);
 
+// ─── Full-screen event view ────────────────────────────
+// Callbacks take an id; we resolve it against cachedEvents so a recurring
+// event edits its seed date, not the displayed occurrence.
+const eventFocus = new EventFocus({
+    onEdit: (id) => {
+        const ev = cachedEvents.find((e) => e.id === id);
+        if (!ev) return;
+        enterEditMode(ev);
+        document.querySelector(".compose").scrollIntoView({ behavior: "smooth", block: "start" });
+        form["event-name"].focus();
+    },
+    onRemove: async (id) => {
+        if (editingId === id) exitEditMode();
+        await storage.removeEvent(id);
+        await loadEvents();
+    },
+});
+
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const eventObj = toEventObj(new FormData(form));
@@ -171,9 +190,13 @@ function render() {
     displayEvents.forEach((e) => {
         eventsCountdown.addEvent(new Event(e.title, e.start, e.end, e.id, e.recurrence));
     });
+    const cardFocus = rememberCardFocus();
     new EventsHtml(eventsCountdown).renderEvents();
     addEventActions();
+    restoreCardFocus(cardFocus);
     renderStatistics();
+    // Keep the full-screen view on the same tick as the cards.
+    eventFocus.sync(eventsCountdown.getEvents(), cachedEvents);
 }
 
 function renderStatistics() {
@@ -289,6 +312,29 @@ function formatDuration(ms) {
     return `${sec}S`;
 }
 
+// The card list is rebuilt wholesale every tick, which would otherwise drop
+// keyboard focus to <body> once a second. Note which card action holds focus,
+// then hand focus to its replacement after the rebuild.
+function rememberCardFocus() {
+    const active = document.activeElement;
+    if (!active || typeof active.closest !== "function") return null;
+    const li = active.closest("#events li.event");
+    if (!li || !li.dataset.eventId) return null;
+    const idx = Array.from(li.querySelectorAll(".event-action")).indexOf(active);
+    if (idx === -1) return null;
+    return { id: li.dataset.eventId, idx };
+}
+
+function restoreCardFocus(memo) {
+    if (!memo) return;
+    const li = document.querySelector(
+        `#events li.event[data-event-id="${cssEscape(memo.id)}"]`
+    );
+    if (!li) return;
+    const target = li.querySelectorAll(".event-action")[memo.idx];
+    if (target) target.focus();
+}
+
 function addEventActions() {
     const eventList = document.getElementById("events");
     if (!eventList) return;
@@ -299,6 +345,21 @@ function addEventActions() {
         const event = cachedEvents.find((e) => e.id === display.id) || display;
         const slot = li.querySelector(".event-actions");
         if (!slot) return;
+
+        // Whole card is a target for the full-screen view; buttons opt out.
+        li.classList.add("is-openable");
+        li.addEventListener("click", (e) => {
+            if (e.target.closest("button")) return;
+            eventFocus.open(display.id);
+        });
+
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.textContent = "Open";
+        openBtn.className = "event-action event-open";
+        openBtn.title = "Open full screen";
+        openBtn.onclick = () => eventFocus.open(display.id);
+        slot.appendChild(openBtn);
 
         const editBtn = document.createElement("button");
         editBtn.type = "button";

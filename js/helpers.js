@@ -11,6 +11,13 @@ export function toDateTimeLocalValue(value) {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Escape a value for use inside an attribute selector. CSS.escape is widely
+// supported, but guard so module code stays usable where it isn't (jsdom).
+export function cssEscape(value) {
+    const str = String(value);
+    return typeof CSS !== "undefined" && CSS.escape ? CSS.escape(str) : str;
+}
+
 function plural(n, unit) {
     return `${n} ${unit}${n === 1 ? "" : "s"}`;
 }
